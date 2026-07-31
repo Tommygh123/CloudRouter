@@ -1,0 +1,208 @@
+import { supabase } from '../lib/supabase';
+
+function normalizeSlug(value = '') {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '');
+}
+
+function createResult(data = null, error = null) {
+  return {
+    data,
+    error,
+  };
+}
+
+export const tenantService = {
+  async getIndustries() {
+    try {
+      const { data, error } = await supabase
+        .from('industries')
+        .select(`
+          id,
+          name,
+          code,
+          description
+        `)
+        .eq('is_active', true)
+        .order('name', {
+          ascending: true,
+        });
+
+      return createResult(data ?? [], error);
+    } catch (error) {
+      console.error(
+        'Could not load industries:',
+        error,
+      );
+
+      return createResult([], error);
+    }
+  },
+
+  async getMemberships(userId) {
+    /*
+     * The AuthContext already knows who is signed in.
+     * Do not call supabase.auth.getUser() here.
+     */
+    if (!userId) {
+      return createResult([], null);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tenant_users')
+        .select(`
+          id,
+          tenant_id,
+          user_id,
+          role_id,
+          status,
+          created_at,
+          tenants:tenant_id (
+            id,
+            business_name,
+            slug,
+            industry_id,
+            country,
+            currency_code,
+            timezone,
+            status,
+            created_at,
+            updated_at
+          ),
+          roles:role_id (
+            id,
+            tenant_id,
+            name,
+            code,
+            description,
+            is_system_role,
+            is_active
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      return createResult(data ?? [], error);
+    } catch (error) {
+      console.error(
+        'Could not load memberships:',
+        error,
+      );
+
+      return createResult([], error);
+    }
+  },
+
+  async resolveCloudRouterIndustryCode() {
+    const { data, error } = await this.getIndustries();
+    if (error) return createResult(null, error);
+
+    const rows = data || [];
+    const preferred = rows.find((item) => {
+      const haystack = `${item.code || ''} ${item.name || ''} ${item.description || ''}`.toLowerCase();
+      return ['hotspot', 'internet', 'isp', 'wifi', 'wi-fi', 'telecom', 'network'].some((term) => haystack.includes(term));
+    }) || rows[0];
+
+    if (!preferred?.code) {
+      return createResult(null, new Error('No active industry reference exists. Keep one active industry row so register_business() can complete.'));
+    }
+
+    return createResult(preferred.code, null);
+  },
+
+  async registerBusiness({
+    fullName,
+    businessName,
+    slug,
+    country,
+  }) {
+    try {
+      const cleanFullName = fullName?.trim();
+      const cleanBusinessName = businessName?.trim();
+      const cleanSlug = normalizeSlug(slug || businessName);
+      const cleanCountry = country?.trim();
+
+      if (!cleanFullName) return createResult(null, new Error('Owner full name is required.'));
+      if (!cleanBusinessName) return createResult(null, new Error('Business name is required.'));
+      if (!cleanSlug) return createResult(null, new Error('Business URL is required.'));
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(cleanSlug)) return createResult(null, new Error('Business URL may contain only lowercase letters, numbers and hyphens.'));
+      if (cleanSlug.length < 3) return createResult(null, new Error('Business URL must contain at least 3 characters.'));
+      if (cleanSlug.length > 60) return createResult(null, new Error('Business URL must not exceed 60 characters.'));
+      if (!cleanCountry) return createResult(null, new Error('Country is required.'));
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) return createResult(null, sessionError);
+      if (!sessionData?.session?.user?.id) return createResult(null, new Error('Your session has expired. Please sign in again.'));
+
+      const industryResult = await this.resolveCloudRouterIndustryCode();
+      if (industryResult.error) return createResult(null, industryResult.error);
+
+      const { data, error } = await supabase.rpc('register_business', {
+        p_full_name: cleanFullName,
+        p_business_name: cleanBusinessName,
+        p_slug: cleanSlug,
+        p_industry_code: industryResult.data,
+        p_country: cleanCountry,
+      });
+
+      if (error) {
+        console.error('register_business RPC failed:', error);
+        return createResult(null, error);
+      }
+      return createResult(data, null);
+    } catch (error) {
+      console.error('Business registration failed:', error);
+      return createResult(null, error);
+    }
+  },
+
+  async getSubscription(tenantId) {
+    if (!tenantId) {
+      return createResult(null, null);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select(`
+          id,
+          tenant_id,
+          plan_id,
+          status,
+          trial_started_at,
+          trial_ends_at,
+          plans:plan_id (
+            id,
+            name,
+            code
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .in('status', [
+          'trialing',
+          'active',
+          'past_due',
+        ])
+        .maybeSingle();
+
+      return createResult(data, error);
+    } catch (error) {
+      console.error(
+        'Could not load subscription:',
+        error,
+      );
+
+      return createResult(null, error);
+    }
+  },
+};
+
+export default tenantService;

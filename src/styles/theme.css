@@ -1,0 +1,57 @@
+:root{
+  --cr-primary:#2563eb;
+  --cr-primary-dark:#1d4ed8;
+  --cr-accent:#06b6d4;
+  --cr-success:#16a34a;
+  --cr-bg:#f4f7fb;
+  --cr-surface:#ffffff;
+  --cr-text:#0f172a;
+  --cr-radius:16px;
+}
+body{
+  margin:0;
+  background:var(--cr-bg);
+  color:var(--cr-text);
+  font-family:Inter,system-ui,Segoe UI,sans-serif;
+}
+.cr-card{
+  background:var(--cr-surface);
+  border-radius:var(--cr-radius);
+  box-shadow:0 10px 30px rgba(15,23,42,.08);
+}
+.cr-btn{
+  background:var(--cr-primary);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  padding:.75rem 1.25rem;
+}
+.cr-btn:hover{background:var(--cr-primary-dark);}
+
+.cloudrouter-page-bg {
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(99, 102, 241, 0.16),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(6, 182, 212, 0.16),
+      transparent 32%
+    ),
+    linear-gradient(
+      135deg,
+      #f8fafc 0%,
+      #eef2ff 50%,
+      #ecfeff 100%
+    );
+}
+
+.cloudrouter-glass,
+.cloudrouter-card {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(18px);
+}

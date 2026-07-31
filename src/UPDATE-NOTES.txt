@@ -1,0 +1,78 @@
+CloudRouter Professional UI + Analytics Update
+==============================================
+
+Implemented from the latest design decisions:
+
+1. Public landing/home page
+- Rebuilt with a professional blue/cyan CloudRouter identity.
+- Replaced the old demo dashboard block and all hard-coded business figures.
+- Added a hotspot/cloud/router network illustration in assets/cloudrouter-hero.svg.
+- Landing page now describes real product capabilities instead of showing fake revenue/users.
+
+2. Dashboard and navigation
+- Removed Get Started from the sidebar and application routes.
+- Added Analytics as a first-class menu item.
+- Reworked the dashboard into a colorful business/network control center.
+- Dashboard values come from tenant data only; no fake demo statistics.
+- Changed the dashboard workspace background from plain black/white styling to blue/cyan professional surfaces.
+
+3. Tenant business setup
+- Removed Business Type / Industry selection from the onboarding UI.
+- CloudRouter resolves the required backend industry reference automatically because this application is specifically for hotspot/ISP operators.
+- New tenants automatically receive editable Ghana starter internet plans:
+  GHS1 / 200 MB
+  GHS2 / 500 MB
+  GHS3 / 1 GB
+  GHS5 / 2 GB
+  GHS10 / 3 GB
+  GHS12 / 4 GB
+  GHS18 / 5 GB
+- Starter plans can later be edited, disabled or deleted in Internet Plans.
+
+4. Reports
+- Site filter.
+- Today / yesterday / this week / last 7 days / this month / last month / quarter / year / all time / custom range.
+- Custom From and To dates.
+- Payment-status filter.
+- Filtered revenue, orders, paid orders, vouchers and active sessions.
+- Print, CSV and PDF export.
+- PDF export uses jspdf + jspdf-autotable already expected in the CloudRouter React project.
+
+5. Analytics & Decision Support
+- Added /dashboard/analytics.
+- Site + period filters.
+- Revenue, paid purchases, unique customers, ARPU, active sessions and router-online KPIs.
+- Most purchased plans.
+- Revenue by site.
+- Users per day.
+- Rule-based decision support observations such as popular plans, leading sites, offline routers and excess voucher stock.
+
+6. Monitoring
+- Site filter.
+- Router online/offline calculation.
+- Last router poll.
+- CPU usage.
+- Memory usage.
+- Uptime.
+- Active hotspot users.
+- WAN status.
+- Failed provisioning jobs.
+- Recent errors.
+- Auto refresh every 30 seconds.
+
+7. MikroTik health reporting
+- Router script generator now includes a CloudRouter heartbeat in addition to provisioning polling.
+- Added Supabase Edge Function: supabase/functions/router-heartbeat/index.ts
+- Updated SQL adds monitoring fields to network_devices and useful reporting indexes.
+
+Deployment steps
+----------------
+A. Run src/database/cloudrouter_operations_upgrade.sql in Supabase SQL Editor.
+B. Deploy the heartbeat function:
+   supabase functions deploy router-heartbeat --no-verify-jwt
+C. After returning to the router location, generate a fresh RouterOS script from Routers & APs and install it on each registered MikroTik router.
+D. Restart the React development server after replacing src.
+
+Important
+---------
+CPU, memory, uptime, WAN and active-user router metrics remain blank until a real router has the updated script and sends its first heartbeat. This is expected while developing away from the control room.

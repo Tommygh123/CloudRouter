@@ -1,0 +1,114 @@
+  /*
+   * The backend must record the Paystack transaction.
+   */
+  if (!transactionId) {
+    throw new Error(
+      "Payment was verified, but no payment transaction was recorded.",
+    );
+  }
+
+  /*
+   * The backend must create a job for the MikroTik router.
+   */
+  if (!provisioningJobId) {
+    throw new Error(
+      "Payment was verified, but no router provisioning job was created.",
+    );
+  }
+
+  const responseReference =
+    data.reference ||
+    paymentData.reference ||
+    cleanReference;
+
+  const username =
+    data.username ||
+    data.voucherUsername ||
+    data.voucher_username ||
+    data.credentials?.username ||
+    paymentData.username ||
+    paymentData.voucherUsername ||
+    paymentData.voucher_username ||
+    paymentData.credentials?.username ||
+    null;
+
+  const password =
+    data.password ||
+    data.voucherPassword ||
+    data.voucher_password ||
+    data.credentials?.password ||
+    paymentData.password ||
+    paymentData.voucherPassword ||
+    paymentData.voucher_password ||
+    paymentData.credentials?.password ||
+    null;
+
+  return {
+    success: true,
+    verified: true,
+    status: paymentStatus,
+
+    reference:
+      responseReference,
+
+    orderId,
+    order_id:
+      orderId,
+
+    transactionId,
+    transaction_id:
+      transactionId,
+
+    provisioningJobId,
+    provisioning_job_id:
+      provisioningJobId,
+
+    provisioningStatus:
+      provisioningStatus || "pending",
+
+    provisioning_status:
+      provisioningStatus || "pending",
+
+    username,
+    password,
+
+    credentials:
+      username && password
+        ? {
+            username,
+            password,
+          }
+        : null,
+
+    authorization:
+      data.authorization ||
+      paymentData.authorization ||
+      null,
+
+    customer:
+      data.customer ||
+      paymentData.customer ||
+      null,
+
+    amount:
+      data.amount ??
+      paymentData.amount ??
+      null,
+
+    currency:
+      data.currency ||
+      paymentData.currency ||
+      null,
+
+    metadata:
+      data.metadata ||
+      paymentData.metadata ||
+      null,
+
+    message:
+      data.message ||
+      "Payment verified and queued for router provisioning.",
+
+    raw: data,
+  };
+}

@@ -1,0 +1,51 @@
+import { useEffect, useMemo, useState } from 'react';
+import { FiActivity, FiBarChart2, FiCalendar, FiDollarSign, FiMapPin, FiTrendingUp, FiUsers, FiWifi } from 'react-icons/fi';
+import { useTenant } from '../../hooks/useTenant';
+import { getSites, getTableRows } from '../../services/operationsService';
+import { PageHeader, StatCard } from '../../components/operations/OperationsUI';
+import { money, periodRange, toInputDate, withinRange } from '../../utils/reporting';
+
+function paid(r){return ['paid','successful','success'].includes(String(r.payment_status||'').toLowerCase());}
+function dateKey(value){const d=new Date(value); return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10);}
+
+function Bars({items,valueKey='value',labelKey='label',format=(v)=>v}){
+  const max=Math.max(1,...items.map(x=>Number(x[valueKey]||0)));
+  return <div className="space-y-3">{items.length===0?<p className="py-8 text-center text-sm text-slate-500">No data for this period.</p>:items.map((item,i)=><div key={`${item[labelKey]}-${i}`}><div className="mb-1 flex items-center justify-between gap-4 text-sm"><span className="truncate font-medium text-slate-700">{item[labelKey]}</span><span className="font-bold text-slate-900">{format(item[valueKey])}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" style={{width:`${Math.max(4,(Number(item[valueKey]||0)/max)*100)}%`}}/></div></div>)}</div>;
+}
+
+export default function Analytics(){
+  const {tenantId}=useTenant(); const [sites,setSites]=useState([]); const [orders,setOrders]=useState([]); const [sessions,setSessions]=useState([]); const [vouchers,setVouchers]=useState([]); const [devices,setDevices]=useState([]);
+  const [siteId,setSiteId]=useState('all'); const [period,setPeriod]=useState('this_month'); const [fromDate,setFromDate]=useState(toInputDate(new Date())); const [toDate,setToDate]=useState(toInputDate(new Date())); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  async function load(){if(!tenantId)return;setLoading(true);setError('');const r=await Promise.allSettled([getSites(tenantId),getTableRows('hotspot_orders',tenantId),getTableRows('hotspot_sessions',tenantId),getTableRows('hotspot_vouchers',tenantId),getTableRows('network_devices',tenantId)]);setSites(r[0].status==='fulfilled'?r[0].value:[]);setOrders(r[1].status==='fulfilled'?r[1].value:[]);setSessions(r[2].status==='fulfilled'?r[2].value:[]);setVouchers(r[3].status==='fulfilled'?r[3].value:[]);setDevices(r[4].status==='fulfilled'?r[4].value:[]);if(r.some(x=>x.status==='rejected'))setError('Some analytics sources are not available yet. Missing sources are shown as zero.');setLoading(false);}
+  useEffect(()=>{load();},[tenantId]);
+  const range=useMemo(()=>periodRange(period,fromDate,toDate),[period,fromDate,toDate]);
+  const os=useMemo(()=>orders.filter(x=>(siteId==='all'||x.site_id===siteId)&&withinRange(x,range,['paid_at','created_at'])),[orders,siteId,range]);
+  const ss=useMemo(()=>sessions.filter(x=>(siteId==='all'||x.site_id===siteId)&&withinRange(x,range,['started_at','created_at'])),[sessions,siteId,range]);
+  const vs=useMemo(()=>vouchers.filter(x=>(siteId==='all'||x.site_id===siteId)&&withinRange(x,range,['sold_at','created_at'])),[vouchers,siteId,range]);
+  const ds=useMemo(()=>devices.filter(x=>siteId==='all'||x.site_id===siteId),[devices,siteId]);
+  const paidOrders=useMemo(()=>os.filter(paid),[os]);
+  const revenue=paidOrders.reduce((a,x)=>a+Number(x.amount??x.price_amount??0),0);
+  const customers=new Set(os.map(x=>x.customer_id||x.customer_phone||x.customer_name).filter(Boolean)).size;
+  const arpu=customers?revenue/customers:0;
+  const onlineRouters=ds.filter(x=>x.device_type==='router'&&String(x.status).toLowerCase()==='online').length;
+  const routers=ds.filter(x=>x.device_type==='router').length;
+
+  const planRows=useMemo(()=>{const map=new Map();for(const x of paidOrders){const k=x.plan_name||'Unnamed plan';const v=map.get(k)||{label:k,count:0,revenue:0};v.count++;v.revenue+=Number(x.amount??x.price_amount??0);map.set(k,v);}return [...map.values()].sort((a,b)=>b.count-a.count).slice(0,8);},[paidOrders]);
+  const siteRows=useMemo(()=>sites.filter(s=>siteId==='all'||s.id===siteId).map(s=>{const rows=paidOrders.filter(x=>x.site_id===s.id);return{label:s.name,value:rows.reduce((a,x)=>a+Number(x.amount??x.price_amount??0),0),users:new Set(ss.filter(x=>x.site_id===s.id).map(x=>x.username||x.customer_id).filter(Boolean)).size};}).sort((a,b)=>b.value-a.value),[sites,siteId,paidOrders,ss]);
+  const dailyUsers=useMemo(()=>{const map=new Map();for(const x of ss){const key=dateKey(x.started_at||x.created_at);if(!key)continue; if(!map.has(key))map.set(key,new Set());map.get(key).add(x.customer_id||x.username||x.mac_address||x.id);}return [...map.entries()].map(([label,set])=>({label,value:set.size})).sort((a,b)=>a.label.localeCompare(b.label)).slice(-14);},[ss]);
+  const bestPlan=planRows[0]; const bestSite=siteRows[0];
+  const insights=[];
+  if(bestPlan)insights.push(`${bestPlan.label} is the most purchased plan in the selected period with ${bestPlan.count} paid purchases.`);
+  if(bestSite&&siteRows.length>1)insights.push(`${bestSite.label} is currently the highest-revenue site at ${money(bestSite.value)}.`);
+  if(routers>0&&onlineRouters<routers)insights.push(`${routers-onlineRouters} router${routers-onlineRouters===1?' is':'s are'} currently not reporting online; review Network Monitoring.`);
+  if(vs.filter(x=>x.status==='available').length>vs.filter(x=>x.status==='sold').length*2&&vs.length>10)insights.push('Available voucher stock is much higher than sold stock for this period; consider reviewing batch sizes or vendor allocation.');
+
+  return <div className="space-y-6">
+    <PageHeader eyebrow="Decision support" title="Analytics" description="Understand business trends, users per day, plan popularity, site performance and network health. Analytics follow the selected site and period." />
+    {error&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{error}</div>}
+    <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center gap-2 text-sm font-bold text-blue-800"><FiCalendar/>Analytics filters</div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><label className="text-sm font-semibold">Site<select value={siteId} onChange={e=>setSiteId(e.target.value)} className="mt-2 w-full rounded-xl border p-2.5"><option value="all">All sites</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label className="text-sm font-semibold">Period<select value={period} onChange={e=>setPeriod(e.target.value)} className="mt-2 w-full rounded-xl border p-2.5"><option value="today">Today</option><option value="this_week">This week</option><option value="last_7_days">Last 7 days</option><option value="this_month">This month</option><option value="last_month">Last month</option><option value="this_year">This year</option><option value="all">All time</option><option value="custom">Custom</option></select></label><label className="text-sm font-semibold">From<input type="date" disabled={period!=='custom'} value={fromDate} onChange={e=>setFromDate(e.target.value)} className="mt-2 w-full rounded-xl border p-2.5 disabled:bg-slate-100"/></label><label className="text-sm font-semibold">To<input type="date" disabled={period!=='custom'} value={toDate} onChange={e=>setToDate(e.target.value)} className="mt-2 w-full rounded-xl border p-2.5 disabled:bg-slate-100"/></label></div></section>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6"><StatCard label="Revenue" value={loading?'—':money(revenue)}/><StatCard label="Paid purchases" value={loading?'—':paidOrders.length}/><StatCard label="Unique customers" value={loading?'—':customers}/><StatCard label="ARPU" value={loading?'—':money(arpu)}/><StatCard label="Active sessions" value={loading?'—':ss.filter(x=>['active','online'].includes(String(x.status).toLowerCase())).length}/><StatCard label="Routers online" value={loading?'—':`${onlineRouters}/${routers}`}/></div>
+    <div className="grid gap-5 xl:grid-cols-2"><section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-blue-100 p-2 text-blue-700"><FiWifi/></span><div><h2 className="text-lg font-bold">Most purchased plans</h2><p className="text-sm text-slate-500">Purchase frequency for the selected period.</p></div></div><Bars items={planRows.map(x=>({label:x.label,value:x.count}))}/></section><section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-emerald-100 p-2 text-emerald-700"><FiDollarSign/></span><div><h2 className="text-lg font-bold">Revenue by site</h2><p className="text-sm text-slate-500">Compare hotspot locations.</p></div></div><Bars items={siteRows} format={money}/></section></div>
+    <div className="grid gap-5 xl:grid-cols-2"><section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-violet-100 p-2 text-violet-700"><FiUsers/></span><div><h2 className="text-lg font-bold">Users per day</h2><p className="text-sm text-slate-500">Unique hotspot users seen each day.</p></div></div><Bars items={dailyUsers}/></section><section className="rounded-3xl bg-gradient-to-br from-blue-700 to-cyan-500 p-6 text-white shadow-xl"><div className="flex items-center gap-3"><FiTrendingUp className="text-2xl"/><div><h2 className="text-lg font-bold text-white">Decision support</h2><p className="text-sm text-blue-100">Rule-based business observations from current data.</p></div></div><div className="mt-5 space-y-3">{insights.length?insights.map((text,i)=><div key={i} className="rounded-2xl border border-white/15 bg-white/10 p-4 text-sm leading-6 backdrop-blur"><FiActivity className="mb-2"/>{text}</div>):<div className="rounded-2xl bg-white/10 p-5 text-sm text-blue-50">More insights will appear when CloudRouter has enough orders, sessions and router data.</div>}</div></section></div>
+  </div>;
+}
