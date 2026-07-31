@@ -179,6 +179,20 @@ function BuyPlan() {
     [],
   );
 
+  const requestedPlan = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    return String(
+      params.get("plan") ||
+      params.get("plan_id") ||
+      "",
+    ).trim();
+  }, []);
+
   const [plans, setPlans] = useState([]);
 
   const [
@@ -226,11 +240,26 @@ function BuyPlan() {
 
       setPlans(data);
 
-      if (data.length === 1) {
-        setSelectedPlanId(data[0].id);
-      }
+      const requested = String(requestedPlan || "")
+        .trim()
+        .toLowerCase();
 
-      if (data.length > 1) {
+      const requestedMatch = requested
+        ? data.find((plan) =>
+            [plan.id, plan.code]
+              .filter(Boolean)
+              .some(
+                (value) =>
+                  String(value).toLowerCase() === requested,
+              ),
+          )
+        : null;
+
+      if (requestedMatch) {
+        setSelectedPlanId(requestedMatch.id);
+      } else if (data.length === 1) {
+        setSelectedPlanId(data[0].id);
+      } else if (data.length > 1) {
         setSelectedPlanId((current) => {
           const stillExists = data.some(
             (plan) => plan.id === current,
@@ -255,7 +284,7 @@ function BuyPlan() {
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, requestedPlan]);
 
   useEffect(() => {
     loadPlans();
