@@ -195,13 +195,14 @@ function BuyPlan() {
 
   const purchaseContext = useMemo(() => {
     if (typeof window === "undefined") {
-      return { loginUrl: "", dst: "" };
+      return { loginUrl: "", returnUrl: "", dst: "" };
     }
 
     const params = new URLSearchParams(window.location.search);
 
     return {
       loginUrl: String(params.get("login_url") || "").trim(),
+      returnUrl: String(params.get("return_url") || "").trim(),
       dst: String(params.get("dst") || "").trim(),
     };
   }, []);
@@ -416,6 +417,16 @@ function BuyPlan() {
         callbackUrl.searchParams.set(
           "login_url",
           purchaseContext.loginUrl,
+        );
+      }
+
+      // Preferred post-payment flow: return to a local MikroTik page.
+      // That page performs the HotSpot login on the router itself, avoiding
+      // unreliable HTTPS (Vercel) -> HTTP (router) form submission.
+      if (purchaseContext.returnUrl) {
+        callbackUrl.searchParams.set(
+          "return_url",
+          purchaseContext.returnUrl,
         );
       }
 

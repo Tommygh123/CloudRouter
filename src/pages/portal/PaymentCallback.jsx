@@ -73,13 +73,23 @@ function getLoginUrlFromUrl() {
   ).trim();
 }
 
+function getReturnUrlFromUrl() {
+  const searchParams = getSearchParams();
+
+  return String(
+    searchParams.get("return_url") ||
+      searchParams.get("returnUrl") ||
+      "",
+  ).trim();
+}
+
 function getDestinationFromUrl() {
   const searchParams = getSearchParams();
 
   return String(searchParams.get("dst") || "").trim();
 }
 
-function isSafeHotspotLoginUrl(value) {
+function isSafeHttpUrl(value) {
   if (!value) return false;
 
   try {
@@ -105,6 +115,7 @@ function PaymentCallback() {
   const tenantId = useMemo(() => getTenantIdFromUrl(), []);
   const planId = useMemo(() => getPlanIdFromUrl(), []);
   const loginUrl = useMemo(() => getLoginUrlFromUrl(), []);
+  const returnUrl = useMemo(() => getReturnUrlFromUrl(), []);
   const destinationUrl = useMemo(() => getDestinationFromUrl(), []);
 
   const initialVerificationStarted = useRef(false);
@@ -120,11 +131,42 @@ function PaymentCallback() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [autoLoginMessage, setAutoLoginMessage] = useState("");
 
-  const loginToHotspot = useCallback((credentials) => {
+  const connectThroughHotspot = useCallback((credentials) => {
     const username = String(credentials?.username || "").trim();
     const password = String(credentials?.password || "").trim();
 
-    if (!username || !password || !isSafeHotspotLoginUrl(loginUrl)) {
+    if (!username || !password) {
+      return false;
+    }
+
+    // Preferred flow: navigate back to the MikroTik-hosted local return page.
+    // Credentials are placed in the URL fragment (#...), so they are not sent
+    // to Vercel, Paystack, or the MikroTik web server as query parameters.
+    if (isSafeHttpUrl(returnUrl)) {
+      setAutoLoginMessage(
+        "Internet account created. Returning to the hotspot to connect this device...",
+      );
+
+      const localReturnUrl = new URL(returnUrl);
+      const fragment = new URLSearchParams();
+      fragment.set("u", username);
+      fragment.set("p", password);
+      fragment.set(
+        "dst",
+        destinationUrl || "http://neverssl.com/",
+      );
+      localReturnUrl.hash = fragment.toString();
+
+      window.setTimeout(() => {
+        window.location.assign(localReturnUrl.toString());
+      }, 700);
+
+      return true;
+    }
+
+    // Legacy fallback for older captive-portal links. New CloudRouter portals
+    // should always provide return_url and therefore avoid this branch.
+    if (!isSafeHttpUrl(loginUrl)) {
       return false;
     }
 
@@ -153,7 +195,7 @@ function PaymentCallback() {
     document.body.appendChild(form);
     window.setTimeout(() => form.submit(), 900);
     return true;
-  }, [destinationUrl, loginUrl]);
+  }, [destinationUrl, loginUrl, returnUrl]);
 
   const pollProvisioning = useCallback(async () => {
     setStatus("activating");
@@ -205,7 +247,7 @@ function PaymentCallback() {
 
         if (!autoLoginStarted.current && credentials?.username && credentials?.password) {
           autoLoginStarted.current = true;
-          loginToHotspot(credentials);
+          connectThroughHotspot(credentials);
         }
         return;
       }
@@ -239,7 +281,7 @@ function PaymentCallback() {
     setMessage(
       "Payment was confirmed, but router activation is taking longer than expected. Use Check again shortly.",
     );
-  }, [loginToHotspot, reference, tenantId]);
+  }, [connectThroughHotspot, reference, tenantId]);
 
   const verifyPayment = useCallback(
     async ({ retry = false } = {}) => {
@@ -358,7 +400,7 @@ function PaymentCallback() {
         result?.voucher_password,
     };
 
-    if (!loginToHotspot(credentials)) {
+    if (!connectThroughHotspot(credentials)) {
       setAutoLoginMessage(
         "Automatic login is unavailable for this purchase link. Use the hotspot username and password shown below.",
       );
@@ -463,7 +505,7 @@ function PaymentCallback() {
 
             {autoLoginMessage && <p>{autoLoginMessage}</p>}
 
-            {username && password && loginUrl && (
+            {username && password && (returnUrl || loginUrl) && (
               <button
                 type="button"
                 onClick={connectNow}
