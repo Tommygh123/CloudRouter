@@ -193,6 +193,19 @@ function BuyPlan() {
     ).trim();
   }, []);
 
+  const purchaseContext = useMemo(() => {
+    if (typeof window === "undefined") {
+      return { loginUrl: "", dst: "" };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    return {
+      loginUrl: String(params.get("login_url") || "").trim(),
+      dst: String(params.get("dst") || "").trim(),
+    };
+  }, []);
+
   const [plans, setPlans] = useState([]);
 
   const [
@@ -396,6 +409,22 @@ function BuyPlan() {
         "plan_id",
         selectedPlan.id,
       );
+
+      // Preserve the originating MikroTik login endpoint through Paystack.
+      // This lets the callback authenticate the same device after provisioning.
+      if (purchaseContext.loginUrl) {
+        callbackUrl.searchParams.set(
+          "login_url",
+          purchaseContext.loginUrl,
+        );
+      }
+
+      if (purchaseContext.dst) {
+        callbackUrl.searchParams.set(
+          "dst",
+          purchaseContext.dst,
+        );
+      }
 
       const planPrice = Number(
         selectedPlan.selling_price ??
