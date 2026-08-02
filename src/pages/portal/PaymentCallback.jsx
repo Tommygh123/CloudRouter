@@ -63,43 +63,6 @@ function getPlanIdFromUrl() {
   ).trim();
 }
 
-function getLoginUrlFromUrl() {
-  const searchParams = getSearchParams();
-
-  return String(
-    searchParams.get("login_url") ||
-      searchParams.get("loginUrl") ||
-      "",
-  ).trim();
-}
-
-function getReturnUrlFromUrl() {
-  const searchParams = getSearchParams();
-
-  return String(
-    searchParams.get("return_url") ||
-      searchParams.get("returnUrl") ||
-      "",
-  ).trim();
-}
-
-function getDestinationFromUrl() {
-  const searchParams = getSearchParams();
-
-  return String(searchParams.get("dst") || "").trim();
-}
-
-function isSafeHttpUrl(value) {
-  if (!value) return false;
-
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 function normalizeStatus(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -114,13 +77,9 @@ function PaymentCallback() {
   const reference = useMemo(() => getReferenceFromUrl(), []);
   const tenantId = useMemo(() => getTenantIdFromUrl(), []);
   const planId = useMemo(() => getPlanIdFromUrl(), []);
-  const loginUrl = useMemo(() => getLoginUrlFromUrl(), []);
-  const returnUrl = useMemo(() => getReturnUrlFromUrl(), []);
-  const destinationUrl = useMemo(() => getDestinationFromUrl(), []);
 
   const initialVerificationStarted = useRef(false);
   const componentMounted = useRef(true);
-  const autoLoginStarted = useRef(false);
 
   const [status, setStatus] = useState("verifying");
   const [message, setMessage] = useState(
@@ -129,73 +88,6 @@ function PaymentCallback() {
   const [paymentResult, setPaymentResult] = useState(null);
   const [provisioningResult, setProvisioningResult] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [autoLoginMessage, setAutoLoginMessage] = useState("");
-
-  const connectThroughHotspot = useCallback((credentials) => {
-    const username = String(credentials?.username || "").trim();
-    const password = String(credentials?.password || "").trim();
-
-    if (!username || !password) {
-      return false;
-    }
-
-    // Preferred flow: navigate back to the MikroTik-hosted local return page.
-    // Credentials are placed in the URL fragment (#...), so they are not sent
-    // to Vercel, Paystack, or the MikroTik web server as query parameters.
-    if (isSafeHttpUrl(returnUrl)) {
-      setAutoLoginMessage(
-        "Internet account created. Returning to the hotspot to connect this device...",
-      );
-
-      const localReturnUrl = new URL(returnUrl);
-      const fragment = new URLSearchParams();
-      fragment.set("u", username);
-      fragment.set("p", password);
-      fragment.set(
-        "dst",
-        destinationUrl || "http://neverssl.com/",
-      );
-      localReturnUrl.hash = fragment.toString();
-
-      window.setTimeout(() => {
-        window.location.assign(localReturnUrl.toString());
-      }, 700);
-
-      return true;
-    }
-
-    // Legacy fallback for older captive-portal links. New CloudRouter portals
-    // should always provide return_url and therefore avoid this branch.
-    if (!isSafeHttpUrl(loginUrl)) {
-      return false;
-    }
-
-    setAutoLoginMessage("Connecting this device to the hotspot...");
-
-    const form = document.createElement("form");
-    form.method = "post";
-    form.action = loginUrl;
-    form.style.display = "none";
-
-    const fields = {
-      username,
-      password,
-      dst: destinationUrl || "http://neverssl.com/",
-      popup: "false",
-    };
-
-    Object.entries(fields).forEach(([name, value]) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-    window.setTimeout(() => form.submit(), 900);
-    return true;
-  }, [destinationUrl, loginUrl, returnUrl]);
 
   const pollProvisioning = useCallback(async () => {
     setStatus("activating");
@@ -239,16 +131,6 @@ function PaymentCallback() {
           result?.message ||
             "Your internet account has been activated successfully.",
         );
-
-        const credentials = result?.credentials || {
-          username: result?.username,
-          password: result?.password,
-        };
-
-        if (!autoLoginStarted.current && credentials?.username && credentials?.password) {
-          autoLoginStarted.current = true;
-          connectThroughHotspot(credentials);
-        }
         return;
       }
 
@@ -281,7 +163,7 @@ function PaymentCallback() {
     setMessage(
       "Payment was confirmed, but router activation is taking longer than expected. Use Check again shortly.",
     );
-  }, [connectThroughHotspot, reference, tenantId]);
+  }, [reference, tenantId]);
 
   const verifyPayment = useCallback(
     async ({ retry = false } = {}) => {
@@ -387,26 +269,6 @@ function PaymentCallback() {
     verifyPayment({ retry: true });
   }
 
-  function connectNow() {
-    const result = provisioningResult || paymentResult;
-    const credentials = result?.credentials || {
-      username:
-        result?.username ||
-        result?.voucherUsername ||
-        result?.voucher_username,
-      password:
-        result?.password ||
-        result?.voucherPassword ||
-        result?.voucher_password,
-    };
-
-    if (!connectThroughHotspot(credentials)) {
-      setAutoLoginMessage(
-        "Automatic login is unavailable for this purchase link. Use the hotspot username and password shown below.",
-      );
-    }
-  }
-
   function returnToPlans() {
     const url = new URL("/buy-plan", window.location.origin);
 
@@ -501,18 +363,6 @@ function PaymentCallback() {
                 not returned. Keep your payment reference and contact the
                 network operator.
               </p>
-            )}
-
-            {autoLoginMessage && <p>{autoLoginMessage}</p>}
-
-            {username && password && (returnUrl || loginUrl) && (
-              <button
-                type="button"
-                onClick={connectNow}
-                className="payment-callback-primary-button"
-              >
-                Connect to internet now
-              </button>
             )}
 
             <button
