@@ -73,6 +73,80 @@ function wait(milliseconds) {
   });
 }
 
+function getHotspotReturnContext() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(
+      "cloudrouter_hotspot_return",
+    );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    const returnUrl = String(parsed?.returnUrl || "").trim();
+
+    if (!returnUrl) {
+      return null;
+    }
+
+    return {
+      returnUrl,
+      dst: String(parsed?.dst || "http://neverssl.com/").trim(),
+    };
+  } catch (error) {
+    console.warn("Could not read hotspot return context:", error);
+    return null;
+  }
+}
+
+function getCredentials(result) {
+  return {
+    username:
+      result?.username ||
+      result?.voucherUsername ||
+      result?.voucher_username ||
+      result?.credentials?.username ||
+      result?.raw?.username ||
+      "",
+    password:
+      result?.password ||
+      result?.voucherPassword ||
+      result?.voucher_password ||
+      result?.credentials?.password ||
+      result?.raw?.password ||
+      "",
+  };
+}
+
+function buildHotspotAutoLoginUrl(result) {
+  const context = getHotspotReturnContext();
+  const { username, password } = getCredentials(result);
+
+  if (!context?.returnUrl || !username || !password) {
+    return "";
+  }
+
+  try {
+    const returnUrl = new URL(context.returnUrl);
+    const fragment = new URLSearchParams();
+
+    fragment.set("u", username);
+    fragment.set("p", password);
+    fragment.set("dst", context.dst || "http://neverssl.com/");
+
+    returnUrl.hash = fragment.toString();
+    return returnUrl.toString();
+  } catch (error) {
+    console.warn("Could not build hotspot auto-login URL:", error);
+    return "";
+  }
+}
+
 function PaymentCallback() {
   const reference = useMemo(() => getReferenceFromUrl(), []);
   const tenantId = useMemo(() => getTenantIdFromUrl(), []);
@@ -126,11 +200,30 @@ function PaymentCallback() {
         provisioningStatus === "success" ||
         provisioningStatus === "successful"
       ) {
+        const autoLoginUrl = buildHotspotAutoLoginUrl(result);
+
         setStatus("success");
         setMessage(
-          result?.message ||
-            "Your internet account has been activated successfully.",
+          autoLoginUrl
+            ? "Internet account created. Signing this device into the hotspot..."
+            : result?.message ||
+                "Your internet account has been activated successfully.",
         );
+
+        if (autoLoginUrl) {
+          try {
+            window.localStorage.removeItem(
+              "cloudrouter_hotspot_return",
+            );
+          } catch {
+            // Ignore storage cleanup failures.
+          }
+
+          window.setTimeout(() => {
+            window.location.replace(autoLoginUrl);
+          }, 1200);
+        }
+
         return;
       }
 

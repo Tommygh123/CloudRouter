@@ -193,6 +193,44 @@ function BuyPlan() {
     ).trim();
   }, []);
 
+  const hotspotContext = useMemo(() => {
+    if (typeof window === "undefined") {
+      return { returnUrl: "", dst: "" };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    return {
+      returnUrl: String(params.get("return_url") || "").trim(),
+      dst: String(params.get("dst") || "").trim(),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hotspotContext.returnUrl || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const parsed = new URL(hotspotContext.returnUrl);
+
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return;
+      }
+
+      window.localStorage.setItem(
+        "cloudrouter_hotspot_return",
+        JSON.stringify({
+          returnUrl: parsed.toString(),
+          dst: hotspotContext.dst || "http://neverssl.com/",
+          savedAt: Date.now(),
+        }),
+      );
+    } catch (error) {
+      console.warn("Invalid hotspot return URL:", error);
+    }
+  }, [hotspotContext]);
+
   const [plans, setPlans] = useState([]);
 
   const [
