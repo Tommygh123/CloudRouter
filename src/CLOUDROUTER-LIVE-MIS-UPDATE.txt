@@ -1,0 +1,25 @@
+CloudRouter Live MIS Update
+===========================
+Payment + post-payment auto-login files were preserved.
+
+Updated modules
+- Dashboard: revenue/customer/session counters now fall back to real paid orders and router heartbeat counts.
+- Customers: derives customer purchase/spend activity from real orders even when hotspot_customers is not yet populated.
+- Orders & Payments: uses price_amount, payment transaction references, provisioning status and site inferred from router.
+- Active Sessions: live router count fallback + detailed per-user session rows when session sync is enabled.
+- Monitoring: active-user totals use router heartbeat when detailed session rows are absent.
+- Reports: site/date/status filters, revenue from paid orders, legacy site inference, CSV/PDF/Print.
+- Analytics: revenue, customers, ARPU, active users, plan popularity, revenue by site, users/day, decision-support observations.
+- Internet Plans: dropdowns for data, validity, download/upload speeds. 2 Mbps upload is marked as a practical social-media baseline.
+
+Required database step
+Run: src/database/cloudrouter_live_mis_upgrade.sql
+
+Required Edge Function step for detailed sessions
+Deploy the updated router-heartbeat function:
+  supabase functions deploy router-heartbeat --no-verify-jwt
+
+Then generate a fresh router script from Routers & APs and replace the existing cloudrouter-provision script on the MikroTik. The updated script sends detailed /ip hotspot active rows with the existing heartbeat.
+
+Important
+Do NOT replace or modify the working BuyPlan.jsx / PaymentCallback.jsx payment + auto-login flow in this package. Those files were left as supplied in the latest working source.

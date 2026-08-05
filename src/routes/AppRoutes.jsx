@@ -29,6 +29,11 @@ import Monitoring from '../pages/network/Monitoring';
 import Reports from '../pages/reports/Reports';
 import Analytics from '../pages/analytics/Analytics';
 import Settings from '../pages/settings/Settings';
+import BusinessBranding from '../pages/settings/BusinessBranding';
+import CaptivePortalSettings from '../pages/settings/CaptivePortalSettings';
+import PaymentSettings from '../pages/settings/PaymentSettings';
+import VoucherSettings from '../pages/settings/VoucherSettings';
+import AccountSettings from '../pages/settings/AccountSettings';
 
 import BusinessSetup from '../pages/onboarding/BusinessSetup';
 
@@ -146,7 +151,11 @@ function AppRoutes() {
 
             <Route path="settings" element={<Settings />} />
 
-            <Route path="settings/profile" element={<BusinessSetup />} />
+            <Route path="settings/profile" element={<BusinessBranding />} />
+            <Route path="settings/captive-portal" element={<CaptivePortalSettings />} />
+            <Route path="settings/payments" element={<PaymentSettings />} />
+            <Route path="settings/vouchers" element={<VoucherSettings />} />
+            <Route path="settings/account" element={<AccountSettings />} />
 
             <Route
               path="*"

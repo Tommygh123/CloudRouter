@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
 import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  FiCheckCircle,
   FiEdit2,
   FiPlus,
   FiRefreshCw,
@@ -9,280 +15,957 @@ import {
 } from "react-icons/fi";
 
 import {
-  createHotspotPlan,
+  createHotspotPlanAndSync,
   getHotspotPlans,
+  getTenantRouters,
   hotspotPlanCodeExists,
   setHotspotPlanStatus,
-  updateHotspotPlan,
+  updateHotspotPlanAndSync,
 } from "../../services/hotspotPlanService";
 
+
+/* =========================================================
+   OPTIONS
+========================================================= */
+
+const DATA_LIMIT_OPTIONS = [
+  {
+    value: "",
+    label: "Unlimited data",
+  },
+  {
+    value: "209715200",
+    label:
+      "200 MB — light browsing / messaging",
+  },
+  {
+    value: "524288000",
+    label:
+      "500 MB — messaging + social media",
+  },
+  {
+    value: "1073741824",
+    label:
+      "1 GB — regular social media",
+  },
+  {
+    value: "2147483648",
+    label:
+      "2 GB — social media + moderate video",
+  },
+  {
+    value: "3221225472",
+    label:
+      "3 GB — heavier daily use",
+  },
+  {
+    value: "4294967296",
+    label:
+      "4 GB — video + downloads",
+  },
+  {
+    value: "5368709120",
+    label:
+      "5 GB — heavy use",
+  },
+];
+
+
+const VALIDITY_OPTIONS = [
+  {
+    value: "",
+    label: "Unlimited / no expiry",
+  },
+  {
+    value: "60",
+    label: "1 hour",
+  },
+  {
+    value: "1440",
+    label: "1 day",
+  },
+  {
+    value: "4320",
+    label: "3 days",
+  },
+  {
+    value: "10080",
+    label: "7 days / 1 week",
+  },
+  {
+    value: "43200",
+    label: "30 days / 1 month",
+  },
+];
+
+
+const SPEED_OPTIONS = [
+  {
+    value: "",
+    label:
+      "Unlimited / profile default",
+  },
+  {
+    value: "512",
+    label: "0.5 Mbps",
+  },
+  {
+    value: "1024",
+    label: "1 Mbps",
+  },
+  {
+    value: "2048",
+    label:
+      "2 Mbps — social media",
+  },
+  {
+    value: "4096",
+    label:
+      "4 Mbps — video calls / uploads",
+  },
+  {
+    value: "5120",
+    label: "5 Mbps",
+  },
+  {
+    value: "8192",
+    label: "8 Mbps",
+  },
+  {
+    value: "10240",
+    label: "10 Mbps",
+  },
+  {
+    value: "20480",
+    label: "20 Mbps",
+  },
+];
+
+
+/* =========================================================
+   EMPTY FORM
+========================================================= */
+
 const emptyForm = {
+  router_id: "",
+
   name: "",
   code: "",
   description: "",
+
   price: "",
   currency_code: "GHS",
+
   data_limit_bytes: "",
   time_limit_minutes: "",
   validity_minutes: "",
+
   download_speed_kbps: "",
   upload_speed_kbps: "",
+
   shared_users: 1,
+
   mikrotik_profile_name: "",
+
   display_order: 0,
+
   is_public: true,
   is_active: true,
 };
 
-function bytesToReadable(bytes) {
-  if (!bytes) return "Unlimited";
 
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = Number(bytes);
+/* =========================================================
+   FORMATTERS
+========================================================= */
+
+function bytesToReadable(
+  bytes
+) {
+  if (!bytes) {
+    return "Unlimited";
+  }
+
+  const units = [
+    "B",
+    "KB",
+    "MB",
+    "GB",
+    "TB",
+  ];
+
+  let value =
+    Number(bytes);
+
   let unitIndex = 0;
 
-  while (value >= 1024 && unitIndex < units.length - 1) {
+
+  while (
+    value >= 1024 &&
+    unitIndex <
+      units.length - 1
+  ) {
     value /= 1024;
+
     unitIndex += 1;
   }
 
-  const decimals = value >= 10 || Number.isInteger(value)
-    ? 0
-    : 1;
 
-  return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+  const decimals =
+    value >= 10 ||
+    Number.isInteger(value)
+      ? 0
+      : 1;
+
+
+  return `${value.toFixed(
+    decimals
+  )} ${units[unitIndex]}`;
 }
 
-function minutesToReadable(minutes) {
-  if (!minutes) return "No expiry";
 
-  const value = Number(minutes);
-
-  if (value % 43200 === 0) {
-    return `${value / 43200} month(s)`;
+function minutesToReadable(
+  minutes
+) {
+  if (!minutes) {
+    return "No expiry";
   }
 
-  if (value % 1440 === 0) {
-    return `${value / 1440} day(s)`;
+
+  const value =
+    Number(minutes);
+
+
+  if (
+    value % 43200 ===
+    0
+  ) {
+    return `${
+      value / 43200
+    } month(s)`;
   }
 
-  if (value % 60 === 0) {
-    return `${value / 60} hour(s)`;
+
+  if (
+    value % 1440 ===
+    0
+  ) {
+    return `${
+      value / 1440
+    } day(s)`;
   }
+
+
+  if (
+    value % 60 ===
+    0
+  ) {
+    return `${
+      value / 60
+    } hour(s)`;
+  }
+
 
   return `${value} minute(s)`;
 }
 
-function kbpsToReadable(kbps) {
-  if (!kbps) return "Unlimited";
 
-  const value = Number(kbps);
-
-  if (value >= 1024) {
-    const mbps = value / 1024;
-    return `${Number.isInteger(mbps) ? mbps : mbps.toFixed(1)} Mbps`;
+function kbpsToReadable(
+  kbps
+) {
+  if (!kbps) {
+    return "Unlimited";
   }
+
+
+  const value =
+    Number(kbps);
+
+
+  if (
+    value >= 1024
+  ) {
+    const mbps =
+      value / 1024;
+
+
+    return `${
+      Number.isInteger(
+        mbps
+      )
+        ? mbps
+        : mbps.toFixed(1)
+    } Mbps`;
+  }
+
 
   return `${value} Kbps`;
 }
 
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
 function InternetPlans() {
-  const [plans, setPlans] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [editingPlanId, setEditingPlanId] = useState(null);
+  const [
+    plans,
+    setPlans,
+  ] = useState([]);
 
-  const [searchText, setSearchText] = useState("");
-  const [showModal, setShowModal] = useState(false);
+  const [
+    routers,
+    setRouters,
+  ] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [
+    form,
+    setForm,
+  ] = useState(
+    emptyForm
+  );
 
-  async function loadPlans() {
+  const [
+    editingPlanId,
+    setEditingPlanId,
+  ] = useState(null);
+
+  const [
+    searchText,
+    setSearchText,
+  ] = useState("");
+
+  const [
+    showModal,
+    setShowModal,
+  ] = useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
+
+  const [
+    statusMessage,
+    setStatusMessage,
+  ] = useState("");
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
+
+
+  /* =======================================================
+     LOAD DATA
+  ======================================================= */
+
+  async function loadData() {
     try {
       setLoading(true);
-      setErrorMessage("");
 
-      const data = await getHotspotPlans();
-      setPlans(data);
-    } catch (error) {
       setErrorMessage(
-        error.message || "Failed to load internet plans."
+        ""
       );
+
+
+      const [
+        planRows,
+        routerRows,
+      ] =
+        await Promise.all([
+          getHotspotPlans(),
+          getTenantRouters(),
+        ]);
+
+
+      setPlans(
+        planRows
+      );
+
+      setRouters(
+        routerRows
+      );
+
+    } catch (
+      error
+    ) {
+      setErrorMessage(
+        error.message ||
+          "Failed to load internet plans."
+      );
+
     } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadPlans();
-  }, []);
-
-  const filteredPlans = useMemo(() => {
-    const term = searchText.trim().toLowerCase();
-
-    if (!term) {
-      return plans;
-    }
-
-    return plans.filter((plan) => {
-      return (
-        plan.name?.toLowerCase().includes(term) ||
-        plan.code?.toLowerCase().includes(term) ||
-        plan.mikrotik_profile_name
-          ?.toLowerCase()
-          .includes(term)
+      setLoading(
+        false
       );
-    });
-  }, [plans, searchText]);
-
-  function openCreateModal() {
-    setEditingPlanId(null);
-    setForm(emptyForm);
-    setErrorMessage("");
-    setStatusMessage("");
-    setShowModal(true);
+    }
   }
 
-  function openEditModal(plan) {
-    setEditingPlanId(plan.id);
 
-    setForm({
-      name: plan.name ?? "",
-      code: plan.code ?? "",
-      description: plan.description ?? "",
-      price: plan.price ?? "",
-      currency_code: plan.currency_code ?? "GHS",
-      data_limit_bytes: plan.data_limit_bytes ?? "",
-      time_limit_minutes: plan.time_limit_minutes ?? "",
-      validity_minutes: plan.validity_minutes ?? "",
-      download_speed_kbps:
-        plan.download_speed_kbps ?? "",
-      upload_speed_kbps:
-        plan.upload_speed_kbps ?? "",
-      shared_users: plan.shared_users ?? 1,
-      mikrotik_profile_name:
-        plan.mikrotik_profile_name ?? "",
-      display_order: plan.display_order ?? 0,
-      is_public: Boolean(plan.is_public),
-      is_active: Boolean(plan.is_active),
-    });
+  useEffect(
+    () => {
+      loadData();
+    },
+    []
+  );
 
-    setErrorMessage("");
-    setStatusMessage("");
-    setShowModal(true);
+
+  /* =======================================================
+     FILTER
+  ======================================================= */
+
+  const filteredPlans =
+    useMemo(
+      () => {
+        const term =
+          searchText
+            .trim()
+            .toLowerCase();
+
+
+        if (!term) {
+          return plans;
+        }
+
+
+        return plans.filter(
+          (plan) => {
+            const router =
+              routers.find(
+                (item) =>
+                  item.id ===
+                  plan.router_id
+              );
+
+
+            const searchValues = [
+              plan.name,
+              plan.code,
+              plan.mikrotik_profile_name,
+              router?.name,
+              router?.router_identity,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+
+            return (
+              searchValues.includes(
+                term
+              )
+            );
+          }
+        );
+      },
+      [
+        plans,
+        routers,
+        searchText,
+      ]
+    );
+
+
+  /* =======================================================
+     ROUTER HELPERS
+  ======================================================= */
+
+  function getRouter(
+    routerId
+  ) {
+    return routers.find(
+      (router) =>
+        router.id ===
+        routerId
+    );
   }
 
-  function closeModal() {
-    if (saving) return;
 
-    setShowModal(false);
-    setEditingPlanId(null);
-    setForm(emptyForm);
-  }
-
-  function handleChange(event) {
-    const { name, value, type, checked } = event.target;
-
-    setForm((current) => ({
-      ...current,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  }
-
-  function validateForm() {
-    if (!form.name.trim()) {
-      return "Plan name is required.";
+  function routerDisplayName(
+    router
+  ) {
+    if (!router) {
+      return "Unassigned";
     }
 
-    if (!form.code.trim()) {
-      return "Plan code is required.";
-    }
 
     if (
-      form.price === "" ||
-      Number.isNaN(Number(form.price)) ||
-      Number(form.price) < 0
+      router.router_identity
     ) {
-      return "Enter a valid plan price.";
+      return `${router.name} — ${router.router_identity}`;
     }
 
-    if (!form.mikrotik_profile_name.trim()) {
-      return "MikroTik profile name is required.";
+
+    return router.name;
+  }
+
+
+  /* =======================================================
+     MODAL
+  ======================================================= */
+
+  function openCreateModal() {
+    setEditingPlanId(
+      null
+    );
+
+
+    /*
+     * If this tenant currently
+     * has one router, preselect it.
+     */
+    const defaultRouterId =
+      routers.length === 1
+        ? routers[0].id
+        : "";
+
+
+    setForm({
+      ...emptyForm,
+      router_id:
+        defaultRouterId,
+    });
+
+
+    setErrorMessage(
+      ""
+    );
+
+    setStatusMessage(
+      ""
+    );
+
+    setShowModal(
+      true
+    );
+  }
+
+
+  function openEditModal(
+    plan
+  ) {
+    setEditingPlanId(
+      plan.id
+    );
+
+
+    setForm({
+      router_id:
+        plan.router_id ??
+        "",
+
+      name:
+        plan.name ??
+        "",
+
+      code:
+        plan.code ??
+        "",
+
+      description:
+        plan.description ??
+        "",
+
+      price:
+        plan.price ??
+        "",
+
+      currency_code:
+        plan.currency_code ??
+        "GHS",
+
+      data_limit_bytes:
+        plan.data_limit_bytes ??
+        "",
+
+      time_limit_minutes:
+        plan.time_limit_minutes ??
+        "",
+
+      validity_minutes:
+        plan.validity_minutes ??
+        "",
+
+      download_speed_kbps:
+        plan.download_speed_kbps ??
+        "",
+
+      upload_speed_kbps:
+        plan.upload_speed_kbps ??
+        "",
+
+      shared_users:
+        plan.shared_users ??
+        1,
+
+      mikrotik_profile_name:
+        plan.mikrotik_profile_name ??
+        "",
+
+      display_order:
+        plan.display_order ??
+        0,
+
+      is_public:
+        Boolean(
+          plan.is_public
+        ),
+
+      is_active:
+        Boolean(
+          plan.is_active
+        ),
+    });
+
+
+    setErrorMessage(
+      ""
+    );
+
+    setStatusMessage(
+      ""
+    );
+
+    setShowModal(
+      true
+    );
+  }
+
+
+  function closeModal() {
+    if (saving) {
+      return;
     }
+
+
+    setShowModal(
+      false
+    );
+
+    setEditingPlanId(
+      null
+    );
+
+    setForm(
+      emptyForm
+    );
+  }
+
+
+  /* =======================================================
+     FORM CHANGE
+  ======================================================= */
+
+  function handleChange(
+    event
+  ) {
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } =
+      event.target;
+
+
+    setForm(
+      (current) => ({
+        ...current,
+
+        [name]:
+          type ===
+          "checkbox"
+            ? checked
+            : value,
+      })
+    );
+  }
+
+
+  /* =======================================================
+     VALIDATION
+  ======================================================= */
+
+  function validateForm() {
+    if (
+      !form.router_id
+    ) {
+      return (
+        "Select the MikroTik router that should receive this plan."
+      );
+    }
+
+
+    if (
+      !form.name.trim()
+    ) {
+      return (
+        "Plan name is required."
+      );
+    }
+
+
+    if (
+      !form.code.trim()
+    ) {
+      return (
+        "Plan code is required."
+      );
+    }
+
+
+    if (
+      form.price ===
+        "" ||
+      Number.isNaN(
+        Number(
+          form.price
+        )
+      ) ||
+      Number(
+        form.price
+      ) < 0
+    ) {
+      return (
+        "Enter a valid plan price."
+      );
+    }
+
+
+    if (
+      !form
+        .mikrotik_profile_name
+        .trim()
+    ) {
+      return (
+        "MikroTik profile name is required."
+      );
+    }
+
 
     if (
       form.data_limit_bytes &&
-      Number(form.data_limit_bytes) <= 0
+      Number(
+        form.data_limit_bytes
+      ) <= 0
     ) {
-      return "Data limit must be greater than zero.";
+      return (
+        "Data limit must be greater than zero."
+      );
     }
+
 
     if (
       form.validity_minutes &&
-      Number(form.validity_minutes) <= 0
+      Number(
+        form.validity_minutes
+      ) <= 0
     ) {
-      return "Validity must be greater than zero.";
+      return (
+        "Validity must be greater than zero."
+      );
     }
+
+
+    if (
+      Number(
+        form.shared_users ||
+          0
+      ) < 1
+    ) {
+      return (
+        "Shared users must be at least 1."
+      );
+    }
+
 
     return null;
   }
 
-  async function handleSubmit(event) {
+
+  /* =======================================================
+     SAVE PLAN + SYNC PROFILE
+  ======================================================= */
+
+  async function handleSubmit(
+    event
+  ) {
     event.preventDefault();
 
-    const validationError = validateForm();
 
-    if (validationError) {
-      setErrorMessage(validationError);
+    const validationError =
+      validateForm();
+
+
+    if (
+      validationError
+    ) {
+      setErrorMessage(
+        validationError
+      );
+
       return;
     }
 
-    try {
-      setSaving(true);
-      setErrorMessage("");
-      setStatusMessage("");
 
-      const duplicateCode = await hotspotPlanCodeExists(
-        form.code,
-        editingPlanId
+    try {
+      setSaving(
+        true
       );
 
-      if (duplicateCode) {
+      setErrorMessage(
+        ""
+      );
+
+      setStatusMessage(
+        ""
+      );
+
+
+      const duplicateCode =
+        await hotspotPlanCodeExists(
+          form.code,
+          editingPlanId
+        );
+
+
+      if (
+        duplicateCode
+      ) {
         throw new Error(
           "A plan with this code already exists for your business."
         );
       }
 
-      if (editingPlanId) {
-        await updateHotspotPlan(editingPlanId, form);
-        setStatusMessage("Internet plan updated successfully.");
+
+      let result;
+
+
+      if (
+        editingPlanId
+      ) {
+        result =
+          await updateHotspotPlanAndSync(
+            editingPlanId,
+            form
+          );
+
       } else {
-        await createHotspotPlan(form);
-        setStatusMessage("Internet plan created successfully.");
+        result =
+          await createHotspotPlanAndSync(
+            form
+          );
       }
 
-      closeModal();
-      await loadPlans();
-    } catch (error) {
-      setErrorMessage(
-        error.message || "Failed to save internet plan."
+
+      /*
+       * Close modal manually.
+       *
+       * We do not call closeModal()
+       * here because saving is still true.
+       */
+      setShowModal(
+        false
       );
+
+      setEditingPlanId(
+        null
+      );
+
+      setForm(
+        emptyForm
+      );
+
+
+      if (
+        result.syncQueued
+      ) {
+        const router =
+          getRouter(
+            result.plan
+              ?.router_id
+          );
+
+
+        setStatusMessage(
+          `${
+            editingPlanId
+              ? "Internet plan updated"
+              : "Internet plan created"
+          } successfully. MikroTik profile ${
+            result.plan
+              ?.mikrotik_profile_name
+          } has been queued for synchronization with ${
+            router?.name ||
+            "the selected router"
+          }.`
+        );
+
+      } else {
+        setStatusMessage(
+          `${
+            editingPlanId
+              ? "Internet plan updated"
+              : "Internet plan created"
+          } successfully.`
+        );
+
+
+        if (
+          result.warning
+        ) {
+          setErrorMessage(
+            result.warning
+          );
+        }
+      }
+
+
+      await loadData();
+
+    } catch (
+      error
+    ) {
+      setErrorMessage(
+        error.message ||
+          "Failed to save internet plan."
+      );
+
     } finally {
-      setSaving(false);
+      setSaving(
+        false
+      );
     }
   }
 
-  async function handleToggleStatus(plan) {
+
+  /* =======================================================
+     ACTIVE / INACTIVE
+  ======================================================= */
+
+  async function handleToggleStatus(
+    plan
+  ) {
     try {
-      setErrorMessage("");
-      setStatusMessage("");
+      setErrorMessage(
+        ""
+      );
+
+      setStatusMessage(
+        ""
+      );
+
 
       await setHotspotPlanStatus(
         plan.id,
         !plan.is_active
       );
+
 
       setStatusMessage(
         plan.is_active
@@ -290,307 +973,710 @@ function InternetPlans() {
           : `${plan.name} has been activated.`
       );
 
-      await loadPlans();
-    } catch (error) {
+
+      await loadData();
+
+    } catch (
+      error
+    ) {
       setErrorMessage(
-        error.message || "Failed to update plan status."
+        error.message ||
+          "Failed to update plan status."
       );
     }
   }
 
+
+  /* =======================================================
+     UI
+  ======================================================= */
+
   return (
     <div className="space-y-6">
+
+      {/* HEADER */}
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
         <div>
+
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
+
             <FiWifi />
+
             Hotspot Billing
+
           </div>
+
 
           <h1 className="text-2xl font-bold text-slate-900">
             Internet Plans
           </h1>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Manage prices, data limits, validity periods and
-            MikroTik profile mappings.
+
+          <p className="mt-1 max-w-3xl text-sm text-slate-500">
+            Manage prices, data limits,
+            validity and MikroTik profiles.
+            Saving a plan automatically
+            queues its hotspot profile for
+            synchronization with the
+            selected router.
           </p>
+
         </div>
+
 
         <button
           type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+          onClick={
+            openCreateModal
+          }
+          disabled={
+            routers.length === 0
+          }
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiPlus />
+
           Add Internet Plan
+
         </button>
+
       </div>
 
+
+      {/* NO ROUTER WARNING */}
+
+      {!loading &&
+        routers.length ===
+          0 && (
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+
+            No active MikroTik router is
+            registered for this business.
+            Register a router before
+            creating synchronized internet
+            plans.
+
+          </div>
+        )}
+
+
+      {/* STATUS */}
+
       {statusMessage && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {statusMessage}
+
+        <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+
+          <FiCheckCircle className="mt-0.5 shrink-0 text-lg" />
+
+          <span>
+            {statusMessage}
+          </span>
+
         </div>
       )}
 
-      {errorMessage && !showModal && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      )}
+
+      {/* ERROR / WARNING */}
+
+      {errorMessage &&
+        !showModal && (
+
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
+            {errorMessage}
+
+          </div>
+        )}
+
+
+      {/* SUMMARY */}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
         <SummaryCard
           label="Total Plans"
-          value={plans.length}
+          value={
+            plans.length
+          }
         />
 
         <SummaryCard
           label="Active Plans"
-          value={plans.filter((plan) => plan.is_active).length}
+          value={
+            plans.filter(
+              (plan) =>
+                plan.is_active
+            ).length
+          }
         />
 
         <SummaryCard
           label="Public Plans"
-          value={plans.filter((plan) => plan.is_public).length}
+          value={
+            plans.filter(
+              (plan) =>
+                plan.is_public
+            ).length
+          }
         />
 
         <SummaryCard
-          label="Inactive Plans"
-          value={plans.filter((plan) => !plan.is_active).length}
+          label="Registered Routers"
+          value={
+            routers.length
+          }
         />
+
       </div>
 
+
+      {/* PLAN TABLE */}
+
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
+
           <div className="relative w-full md:max-w-sm">
+
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+
 
             <input
               type="search"
-              value={searchText}
-              onChange={(event) =>
-                setSearchText(event.target.value)
+              value={
+                searchText
               }
-              placeholder="Search plans or profile names"
+              onChange={(
+                event
+              ) =>
+                setSearchText(
+                  event.target
+                    .value
+                )
+              }
+              placeholder="Search plans, profiles or routers"
               className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
+
           </div>
+
 
           <button
             type="button"
-            onClick={loadPlans}
-            disabled={loading}
+            onClick={
+              loadData
+            }
+            disabled={
+              loading
+            }
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
+
             <FiRefreshCw
-              className={loading ? "animate-spin" : ""}
+              className={
+                loading
+                  ? "animate-spin"
+                  : ""
+              }
             />
+
             Refresh
+
           </button>
+
         </div>
 
+
         <div className="overflow-x-auto">
+
           <table className="min-w-full divide-y divide-slate-200">
+
             <thead className="bg-slate-50">
+
               <tr>
-                <TableHeading>Plan</TableHeading>
-                <TableHeading>Price</TableHeading>
-                <TableHeading>Data</TableHeading>
-                <TableHeading>Validity</TableHeading>
-                <TableHeading>Speed</TableHeading>
-                <TableHeading>Router Profile</TableHeading>
-                <TableHeading>Status</TableHeading>
-                <TableHeading>Actions</TableHeading>
+
+                <TableHeading>
+                  Plan
+                </TableHeading>
+
+                <TableHeading>
+                  Price
+                </TableHeading>
+
+                <TableHeading>
+                  Data
+                </TableHeading>
+
+                <TableHeading>
+                  Validity
+                </TableHeading>
+
+                <TableHeading>
+                  Speed
+                </TableHeading>
+
+                <TableHeading>
+                  Router Profile
+                </TableHeading>
+
+                <TableHeading>
+                  Router
+                </TableHeading>
+
+                <TableHeading>
+                  Status
+                </TableHeading>
+
+                <TableHeading>
+                  Actions
+                </TableHeading>
+
               </tr>
+
             </thead>
 
+
             <tbody className="divide-y divide-slate-100 bg-white">
+
               {loading ? (
+
                 <tr>
+
                   <td
-                    colSpan="8"
+                    colSpan="9"
                     className="px-6 py-12 text-center text-sm text-slate-500"
                   >
                     Loading internet plans...
                   </td>
+
                 </tr>
-              ) : filteredPlans.length === 0 ? (
+
+              ) : filteredPlans.length ===
+                0 ? (
+
                 <tr>
+
                   <td
-                    colSpan="8"
+                    colSpan="9"
                     className="px-6 py-12 text-center"
                   >
+
                     <FiWifi className="mx-auto mb-3 text-3xl text-slate-300" />
+
 
                     <p className="font-medium text-slate-700">
                       No internet plans found
                     </p>
 
+
                     <p className="mt-1 text-sm text-slate-500">
-                      Add a plan or adjust your search.
+                      Add a plan or adjust
+                      your search.
                     </p>
+
                   </td>
+
                 </tr>
+
               ) : (
-                filteredPlans.map((plan) => (
-                  <tr
-                    key={plan.id}
-                    className="hover:bg-slate-50"
-                  >
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <p className="font-semibold text-slate-900">
-                        {plan.name}
-                      </p>
 
-                      <p className="text-xs text-slate-500">
-                        {plan.code}
-                      </p>
-                    </td>
+                filteredPlans.map(
+                  (plan) => {
 
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-900">
-                      {plan.currency_code}{" "}
-                      {Number(plan.price).toFixed(2)}
-                    </td>
+                    const router =
+                      getRouter(
+                        plan.router_id
+                      );
 
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
-                      {bytesToReadable(plan.data_limit_bytes)}
-                    </td>
 
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
-                      {minutesToReadable(
-                        plan.validity_minutes
-                      )}
-                    </td>
+                    return (
 
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
-                      <div>
-                        ↓{" "}
-                        {kbpsToReadable(
-                          plan.download_speed_kbps
-                        )}
-                      </div>
+                      <tr
+                        key={
+                          plan.id
+                        }
+                        className="hover:bg-slate-50"
+                      >
 
-                      <div>
-                        ↑{" "}
-                        {kbpsToReadable(
-                          plan.upload_speed_kbps
-                        )}
-                      </div>
-                    </td>
+                        <td className="whitespace-nowrap px-6 py-4">
 
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs text-slate-700">
-                        {plan.mikrotik_profile_name}
-                      </span>
-                    </td>
+                          <p className="font-semibold text-slate-900">
+                            {plan.name}
+                          </p>
 
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <StatusBadge active={plan.is_active}>
-                          {plan.is_active
-                            ? "Active"
-                            : "Inactive"}
-                        </StatusBadge>
+                          <p className="text-xs text-slate-500">
+                            {plan.code}
+                          </p>
 
-                        <span className="text-xs text-slate-500">
-                          {plan.is_public
-                            ? "Public"
-                            : "Private"}
-                        </span>
-                      </div>
-                    </td>
+                        </td>
 
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(plan)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                          <FiEdit2 />
-                          Edit
-                        </button>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleStatus(plan)
-                          }
-                          className={`rounded-lg px-3 py-2 text-xs font-medium ${
-                            plan.is_active
-                              ? "bg-red-50 text-red-700 hover:bg-red-100"
-                              : "bg-green-50 text-green-700 hover:bg-green-100"
-                          }`}
-                        >
-                          {plan.is_active
-                            ? "Deactivate"
-                            : "Activate"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                        <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-900">
+
+                          {
+                            plan.currency_code
+                          }{" "}
+
+                          {Number(
+                            plan.price
+                          ).toFixed(
+                            2
+                          )}
+
+                        </td>
+
+
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+
+                          {bytesToReadable(
+                            plan.data_limit_bytes
+                          )}
+
+                        </td>
+
+
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+
+                          {minutesToReadable(
+                            plan.validity_minutes
+                          )}
+
+                        </td>
+
+
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+
+                          <div>
+                            ↓{" "}
+                            {kbpsToReadable(
+                              plan.download_speed_kbps
+                            )}
+                          </div>
+
+                          <div>
+                            ↑{" "}
+                            {kbpsToReadable(
+                              plan.upload_speed_kbps
+                            )}
+                          </div>
+
+                        </td>
+
+
+                        <td className="whitespace-nowrap px-6 py-4">
+
+                          <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs text-slate-700">
+
+                            {
+                              plan.mikrotik_profile_name
+                            }
+
+                          </span>
+
+                        </td>
+
+
+                        <td className="px-6 py-4">
+
+                          {router ? (
+
+                            <div>
+
+                              <p className="whitespace-nowrap text-sm font-medium text-slate-800">
+                                {router.name}
+                              </p>
+
+                              <p className="whitespace-nowrap text-xs text-slate-500">
+                                {
+                                  router.router_identity ||
+                                  "MikroTik router"
+                                }
+                              </p>
+
+                            </div>
+
+                          ) : (
+
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                              Unassigned
+                            </span>
+
+                          )}
+
+                        </td>
+
+
+                        <td className="whitespace-nowrap px-6 py-4">
+
+                          <div className="flex flex-col gap-1">
+
+                            <StatusBadge
+                              active={
+                                plan.is_active
+                              }
+                            >
+                              {
+                                plan.is_active
+                                  ? "Active"
+                                  : "Inactive"
+                              }
+                            </StatusBadge>
+
+
+                            <span className="text-xs text-slate-500">
+
+                              {
+                                plan.is_public
+                                  ? "Public"
+                                  : "Private"
+                              }
+
+                            </span>
+
+                          </div>
+
+                        </td>
+
+
+                        <td className="whitespace-nowrap px-6 py-4">
+
+                          <div className="flex items-center gap-2">
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openEditModal(
+                                  plan
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+
+                              <FiEdit2 />
+
+                              Edit
+
+                            </button>
+
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggleStatus(
+                                  plan
+                                )
+                              }
+                              className={`rounded-lg px-3 py-2 text-xs font-medium ${
+                                plan.is_active
+                                  ? "bg-red-50 text-red-700 hover:bg-red-100"
+                                  : "bg-green-50 text-green-700 hover:bg-green-100"
+                              }`}
+                            >
+
+                              {
+                                plan.is_active
+                                  ? "Deactivate"
+                                  : "Activate"
+                              }
+
+                            </button>
+
+                          </div>
+
+                        </td>
+
+                      </tr>
+                    );
+                  }
+                )
               )}
+
             </tbody>
+
           </table>
+
         </div>
+
       </div>
 
+
+      {/* ===================================================
+          CREATE / EDIT MODAL
+      =================================================== */}
+
       {showModal && (
+
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+
           <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-            <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+
               <div>
+
                 <h2 className="text-lg font-bold text-slate-900">
-                  {editingPlanId
-                    ? "Edit Internet Plan"
-                    : "Add Internet Plan"}
+
+                  {
+                    editingPlanId
+                      ? "Edit Internet Plan"
+                      : "Add Internet Plan"
+                  }
+
                 </h2>
 
-                <p className="text-sm text-slate-500">
-                  Plans are saved in CloudRouter. RB4011 cloud synchronization
-                  will be connected in the network-device module.
+
+                <p className="mt-1 text-sm text-slate-500">
+
+                  Saving this plan queues
+                  its MikroTik hotspot
+                  profile for automatic
+                  synchronization with the
+                  selected router.
+
                 </p>
+
               </div>
+
 
               <button
                 type="button"
-                onClick={closeModal}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                onClick={
+                  closeModal
+                }
+                disabled={
+                  saving
+                }
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
               >
-                <FiX size={20} />
+
+                <FiX
+                  size={
+                    20
+                  }
+                />
+
               </button>
+
             </div>
 
+
             <form
-              onSubmit={handleSubmit}
+              onSubmit={
+                handleSubmit
+              }
               className="space-y-6 p-6"
             >
+
               {errorMessage && (
+
                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {errorMessage}
+
+                  {
+                    errorMessage
+                  }
+
                 </div>
+
               )}
 
+
+              {/* ROUTER */}
+
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+
+                <label className="text-sm font-semibold text-slate-800">
+
+                  MikroTik Router
+
+                  <select
+                    name="router_id"
+                    value={
+                      form.router_id
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    required
+                    className="mt-2 w-full rounded-xl border border-blue-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  >
+
+                    <option value="">
+                      Select router
+                    </option>
+
+
+                    {routers.map(
+                      (
+                        router
+                      ) => (
+
+                        <option
+                          key={
+                            router.id
+                          }
+                          value={
+                            router.id
+                          }
+                        >
+                          {
+                            routerDisplayName(
+                              router
+                            )
+                          }
+                        </option>
+
+                      )
+                    )}
+
+                  </select>
+
+                </label>
+
+
+                <p className="mt-2 text-xs text-slate-500">
+
+                  The selected router will
+                  automatically create or
+                  update this plan's
+                  MikroTik Hotspot profile.
+
+                </p>
+
+              </div>
+
+
               <div className="grid gap-4 md:grid-cols-2">
+
                 <FormField
                   label="Plan name"
                   name="name"
-                  value={form.name}
-                  onChange={handleChange}
+                  value={
+                    form.name
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="GHS5 - 2GB"
                   required
                 />
 
+
                 <FormField
                   label="Plan code"
                   name="code"
-                  value={form.code}
-                  onChange={handleChange}
+                  value={
+                    form.code
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="GHS5-2GB"
                   required
                 />
+
 
                 <FormField
                   label="Price"
@@ -598,180 +1684,317 @@ function InternetPlans() {
                   type="number"
                   step="0.01"
                   min="0"
-                  value={form.price}
-                  onChange={handleChange}
+                  value={
+                    form.price
+                  }
+                  onChange={
+                    handleChange
+                  }
                   required
                 />
+
 
                 <FormField
                   label="Currency"
                   name="currency_code"
-                  value={form.currency_code}
-                  onChange={handleChange}
-                  maxLength={3}
+                  value={
+                    form.currency_code
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  maxLength={
+                    3
+                  }
                   required
                 />
 
-                <FormField
-                  label="Data limit in bytes"
+
+                <SelectField
+                  label="Data allowance"
                   name="data_limit_bytes"
-                  type="number"
-                  min="1"
-                  value={form.data_limit_bytes}
-                  onChange={handleChange}
-                  placeholder="2147483648"
+                  value={
+                    form.data_limit_bytes
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  options={
+                    DATA_LIMIT_OPTIONS
+                  }
                 />
 
-                <FormField
-                  label="Validity in minutes"
+
+                <SelectField
+                  label="Validity"
                   name="validity_minutes"
-                  type="number"
-                  min="1"
-                  value={form.validity_minutes}
-                  onChange={handleChange}
-                  placeholder="1440"
+                  value={
+                    form.validity_minutes
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  options={
+                    VALIDITY_OPTIONS
+                  }
                 />
+
 
                 <FormField
                   label="Session time limit in minutes"
                   name="time_limit_minutes"
                   type="number"
                   min="1"
-                  value={form.time_limit_minutes}
-                  onChange={handleChange}
+                  value={
+                    form.time_limit_minutes
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Leave blank for no session limit"
                 />
+
 
                 <FormField
                   label="Shared users"
                   name="shared_users"
                   type="number"
                   min="1"
-                  value={form.shared_users}
-                  onChange={handleChange}
+                  value={
+                    form.shared_users
+                  }
+                  onChange={
+                    handleChange
+                  }
                 />
 
-                <FormField
-                  label="Download speed in Kbps"
+
+                <SelectField
+                  label="Download speed"
                   name="download_speed_kbps"
-                  type="number"
-                  min="1"
-                  value={form.download_speed_kbps}
-                  onChange={handleChange}
-                  placeholder="8192"
+                  value={
+                    form.download_speed_kbps
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  options={
+                    SPEED_OPTIONS
+                  }
                 />
 
-                <FormField
-                  label="Upload speed in Kbps"
+
+                <SelectField
+                  label="Upload speed"
                   name="upload_speed_kbps"
-                  type="number"
-                  min="1"
-                  value={form.upload_speed_kbps}
-                  onChange={handleChange}
-                  placeholder="4096"
+                  value={
+                    form.upload_speed_kbps
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  options={
+                    SPEED_OPTIONS
+                  }
                 />
+
 
                 <FormField
                   label="MikroTik profile name"
                   name="mikrotik_profile_name"
-                  value={form.mikrotik_profile_name}
-                  onChange={handleChange}
+                  value={
+                    form.mikrotik_profile_name
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="GHS5-2GB"
                   required
                 />
+
 
                 <FormField
                   label="Display order"
                   name="display_order"
                   type="number"
                   min="0"
-                  value={form.display_order}
-                  onChange={handleChange}
+                  value={
+                    form.display_order
+                  }
+                  onChange={
+                    handleChange
+                  }
                 />
+
               </div>
 
+
               <div>
+
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Description
                 </label>
 
+
                 <textarea
                   name="description"
-                  value={form.description}
-                  onChange={handleChange}
+                  value={
+                    form.description
+                  }
+                  onChange={
+                    handleChange
+                  }
                   rows="3"
                   placeholder="2GB valid for one day"
                   className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
+
               </div>
 
+
               <div className="flex flex-wrap gap-6 rounded-xl bg-slate-50 p-4">
+
                 <CheckboxField
                   label="Visible on public purchase page"
                   name="is_public"
-                  checked={form.is_public}
-                  onChange={handleChange}
+                  checked={
+                    form.is_public
+                  }
+                  onChange={
+                    handleChange
+                  }
                 />
+
 
                 <CheckboxField
                   label="Plan is active"
                   name="is_active"
-                  checked={form.is_active}
-                  onChange={handleChange}
+                  checked={
+                    form.is_active
+                  }
+                  onChange={
+                    handleChange
+                  }
                 />
+
               </div>
 
+
+              <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4 text-sm text-cyan-900">
+
+                <strong>
+                  Automatic router synchronization
+                </strong>
+
+                <p className="mt-1 text-cyan-800">
+
+                  If the MikroTik profile
+                  does not exist,
+                  CloudRouter will create
+                  it. If it already exists,
+                  CloudRouter will update
+                  its speed and shared-user
+                  settings.
+
+                </p>
+
+              </div>
+
+
               <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+
                 <button
                   type="button"
-                  onClick={closeModal}
-                  disabled={saving}
+                  onClick={
+                    closeModal
+                  }
+                  disabled={
+                    saving
+                  }
                   className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 >
                   Cancel
                 </button>
 
+
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={
+                    saving
+                  }
                   className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {saving
-                    ? "Saving..."
-                    : editingPlanId
-                      ? "Update Plan"
-                      : "Create Plan"}
+
+                  {
+                    saving
+                      ? "Saving & syncing..."
+                      : editingPlanId
+                        ? "Update & Sync Plan"
+                        : "Create & Sync Plan"
+                  }
+
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
+
       )}
+
     </div>
   );
 }
 
-function SummaryCard({ label, value }) {
+
+/* =========================================================
+   SMALL COMPONENTS
+========================================================= */
+
+function SummaryCard({
+  label,
+  value,
+}) {
   return (
+
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
+
+      <p className="text-sm text-slate-500">
+        {label}
+      </p>
+
       <p className="mt-2 text-3xl font-bold text-slate-900">
         {value}
       </p>
+
     </div>
   );
 }
 
-function TableHeading({ children }) {
+
+function TableHeading({
+  children,
+}) {
   return (
+
     <th className="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+
       {children}
+
     </th>
   );
 }
 
-function StatusBadge({ active, children }) {
+
+function StatusBadge({
+  active,
+  children,
+}) {
   return (
+
     <span
       className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${
         active
@@ -779,10 +2002,13 @@ function StatusBadge({ active, children }) {
           : "bg-slate-200 text-slate-600"
       }`}
     >
+
       {children}
+
     </span>
   );
 }
+
 
 function FormField({
   label,
@@ -793,22 +2019,95 @@ function FormField({
   ...rest
 }) {
   return (
+
     <div>
+
       <label className="mb-2 block text-sm font-medium text-slate-700">
+
         {label}
+
       </label>
 
+
       <input
-        name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
+        name={
+          name
+        }
+        type={
+          type
+        }
+        value={
+          value
+        }
+        onChange={
+          onChange
+        }
         className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         {...rest}
       />
+
     </div>
   );
 }
+
+
+function SelectField({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+}) {
+  return (
+
+    <label className="text-sm font-medium text-slate-700">
+
+      {label}
+
+
+      <select
+        name={
+          name
+        }
+        value={
+          value
+        }
+        onChange={
+          onChange
+        }
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      >
+
+        {options.map(
+          (
+            option
+          ) => (
+
+            <option
+              key={
+                option.value ||
+                `blank-${name}`
+              }
+              value={
+                option.value
+              }
+            >
+
+              {
+                option.label
+              }
+
+            </option>
+
+          )
+        )}
+
+      </select>
+
+    </label>
+  );
+}
+
 
 function CheckboxField({
   label,
@@ -817,18 +2116,28 @@ function CheckboxField({
   onChange,
 }) {
   return (
+
     <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-700">
+
       <input
         type="checkbox"
-        name={name}
-        checked={checked}
-        onChange={onChange}
+        name={
+          name
+        }
+        checked={
+          checked
+        }
+        onChange={
+          onChange
+        }
         className="h-4 w-4 rounded border-slate-300 text-blue-600"
       />
 
       {label}
+
     </label>
   );
 }
+
 
 export default InternetPlans;

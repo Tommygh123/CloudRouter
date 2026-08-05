@@ -68,6 +68,7 @@ export const tenantService = {
           tenants:tenant_id (
             id,
             business_name,
+            logo_url,
             slug,
             industry_id,
             country,
@@ -160,6 +161,83 @@ export const tenantService = {
       return createResult(data, null);
     } catch (error) {
       console.error('Business registration failed:', error);
+      return createResult(null, error);
+    }
+  },
+
+
+  async updateBusinessBranding(tenantId, { businessName, logoUrl }) {
+    if (!tenantId) return createResult(null, new Error('Tenant ID is required.'));
+    const cleanName = String(businessName || '').trim();
+    if (!cleanName) return createResult(null, new Error('Business name is required.'));
+
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .update({
+          business_name: cleanName,
+          logo_url: logoUrl || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tenantId)
+        .select('id, business_name, logo_url, slug, country, currency_code, timezone, status, updated_at')
+        .single();
+      return createResult(data, error);
+    } catch (error) {
+      console.error('Could not update tenant branding:', error);
+      return createResult(null, error);
+    }
+  },
+
+  async uploadTenantLogo(tenantId, file) {
+    if (!tenantId) return createResult(null, new Error('Tenant ID is required.'));
+    if (!file) return createResult(null, new Error('Choose a logo file.'));
+
+    const allowed = new Set(['image/png', 'image/jpeg', 'image/webp']);
+    if (!allowed.has(file.type)) return createResult(null, new Error('Logo must be PNG, JPG/JPEG or WEBP.'));
+    if (file.size > 2 * 1024 * 1024) return createResult(null, new Error('Logo must not exceed 2 MB.'));
+
+    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+    const folder = tenantId;
+    const path = `${folder}/logo.${extension}`;
+
+    try {
+      const { data: existing } = await supabase.storage.from('tenant-branding').list(folder, { limit: 20 });
+      const oldLogoPaths = (existing || [])
+        .filter((item) => /^logo\.(png|jpg|jpeg|webp)$/i.test(item.name))
+        .map((item) => `${folder}/${item.name}`);
+      if (oldLogoPaths.length) await supabase.storage.from('tenant-branding').remove(oldLogoPaths);
+
+      const { error: uploadError } = await supabase.storage
+        .from('tenant-branding')
+        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+      if (uploadError) return createResult(null, uploadError);
+
+      const { data } = supabase.storage.from('tenant-branding').getPublicUrl(path);
+      return createResult({ path, publicUrl: data?.publicUrl || null }, null);
+    } catch (error) {
+      console.error('Could not upload tenant logo:', error);
+      return createResult(null, error);
+    }
+  },
+
+  async removeTenantLogo(tenantId) {
+    if (!tenantId) return createResult(null, new Error('Tenant ID is required.'));
+    try {
+      const { data: existing, error: listError } = await supabase.storage
+        .from('tenant-branding')
+        .list(tenantId, { limit: 20 });
+      if (listError) return createResult(null, listError);
+      const paths = (existing || [])
+        .filter((item) => /^logo\.(png|jpg|jpeg|webp)$/i.test(item.name))
+        .map((item) => `${tenantId}/${item.name}`);
+      if (paths.length) {
+        const { error } = await supabase.storage.from('tenant-branding').remove(paths);
+        if (error) return createResult(null, error);
+      }
+      return createResult(true, null);
+    } catch (error) {
+      console.error('Could not remove tenant logo:', error);
       return createResult(null, error);
     }
   },

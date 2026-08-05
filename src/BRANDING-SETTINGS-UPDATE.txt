@@ -1,0 +1,18 @@
+CloudRouter tenant branding/settings update
+
+Added:
+- Settings routes for Business & Branding, Captive Portal, Payments, Voucher Settings, Security & Account.
+- BusinessBranding.jsx with tenant business-name editing and tenant-logo upload/remove.
+- tenant-branding Storage integration (PNG/JPG/WEBP, max 2 MB).
+- tenantService membership now retrieves tenants.logo_url.
+- Sidebar and Topbar now show tenant identity plus CloudRouter platform branding.
+- Voucher print/share now include tenant name, tenant logo, price, validity and Powered by CloudRouter.
+- SQL policy file: src/database/tenant_branding_storage.sql
+
+Before logo upload testing:
+1. Ensure bucket tenant-branding exists and is PUBLIC.
+2. Ensure public.tenants.logo_url text exists.
+3. Run src/database/tenant_branding_storage.sql in Supabase SQL editor.
+4. Restart Vite after replacing src if needed.
+
+The captive portal page is prepared to use centralized branding, but router-local MikroTik HTML still requires a later portal-package sync/generation step to inject tenant branding automatically.
