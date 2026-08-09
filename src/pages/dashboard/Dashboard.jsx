@@ -126,12 +126,17 @@ async function loadOrders(tenantId) {
   };
 }
 
+
+function isRouterDevice(device) {
+  const type = String(device?.device_type || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return ['router', 'mikrotik_router', 'routeros', 'gateway'].includes(type) || Boolean(device?.router_identity || device?.identity_name);
+}
+
 async function loadRouters(tenantId) {
   const { data, error } = await supabase
     .from('network_devices')
     .select('*')
-    .eq('tenant_id', tenantId)
-    .eq('device_type', 'router');
+    .eq('tenant_id', tenantId);
 
   if (error) {
     console.warn(
@@ -146,7 +151,7 @@ async function loadRouters(tenantId) {
   }
 
   return {
-    rows: data || [],
+    rows: (data || []).filter(isRouterDevice),
     error: null,
   };
 }
@@ -251,12 +256,12 @@ export default function Dashboard() {
         ),
 
         safeCount(
-          'hotspot_sessions',
+          'hotspot_active_sessions',
           tenantId,
           [
             {
               column: 'status',
-              value: 'active',
+              value: 'online',
             },
           ],
         ),
@@ -292,14 +297,7 @@ export default function Dashboard() {
           'network_devices',
           tenantId,
           [
-            {
-              column: 'device_type',
-              value: 'router',
-            },
-            {
-              column: 'status',
-              value: 'online',
-            },
+            { column: 'status', value: 'online' },
           ],
         ),
 
@@ -352,7 +350,7 @@ export default function Dashboard() {
       /*
        * Router heartbeat gives us the real current
        * active-user count even before every detailed
-       * hotspot_sessions row is synchronized.
+       * hotspot_active_sessions row is synchronized.
        */
       const routerActiveUsers =
         routers.reduce(
@@ -440,10 +438,7 @@ export default function Dashboard() {
         sites:
           sitesResult.value,
 
-        onlineRouters: Math.max(
-          onlineRoutersResult.value,
-          heartbeatOnlineRouters,
-        ),
+        onlineRouters: heartbeatOnlineRouters,
 
         revenue,
 

@@ -36,6 +36,7 @@ import VoucherSettings from '../pages/settings/VoucherSettings';
 import AccountSettings from '../pages/settings/AccountSettings';
 
 import BusinessSetup from '../pages/onboarding/BusinessSetup';
+import GetStarted from '../pages/onboarding/GetStarted';
 
 import BuyPlan from '../pages/portal/BuyPlan';
 import PaymentCallback from '../pages/portal/PaymentCallback';
@@ -121,6 +122,7 @@ function AppRoutes() {
             element={<DashboardLayout />}
           >
             <Route index element={<Dashboard />} />
+            <Route path="get-started" element={<GetStarted />} />
             <Route
               path="hotspot/plans"
               element={<InternetPlans />}

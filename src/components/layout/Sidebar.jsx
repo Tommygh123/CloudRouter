@@ -1,6 +1,6 @@
 import {
   FiActivity, FiBarChart2, FiChevronLeft, FiChevronRight, FiCreditCard,
-  FiHome, FiMapPin, FiMonitor, FiRadio, FiSettings, FiShoppingCart,
+  FiHome, FiMapPin, FiMonitor, FiRadio, FiSettings, FiShoppingCart, FiCompass,
   FiTrendingUp, FiUserPlus, FiUsers, FiWifi, FiX,
 } from 'react-icons/fi';
 import { NavLink } from 'react-router-dom';
@@ -8,7 +8,10 @@ import { useTenant } from '../../hooks/useTenant';
 import { TenantLogo } from '../branding/TenantBrand';
 
 const menuSections = [
-  { title: 'Overview', items: [{ label: 'Dashboard', path: '/dashboard', icon: FiHome }] },
+  { title: 'Overview', items: [
+    { label: 'Dashboard', path: '/dashboard', icon: FiHome },
+    { label: 'Get Started', path: '/dashboard/get-started', icon: FiCompass },
+  ] },
   { title: 'Hotspot Business', items: [
     { label: 'Internet Plans', path: '/dashboard/hotspot/plans', icon: FiWifi },
     { label: 'Vouchers', path: '/dashboard/hotspot/vouchers', icon: FiCreditCard },

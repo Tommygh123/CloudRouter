@@ -256,9 +256,9 @@ export async function createDevice(
         values.mac_address,
       ),
 
-    ip_address:
+    management_ip:
       cleanText(
-        values.ip_address,
+        values.management_ip ?? values.ip_address,
       ),
 
     router_identity:
@@ -272,10 +272,9 @@ export async function createDevice(
       null,
 
     status:
-      values.device_type ===
-      'router'
-        ? 'pending_installation'
-        : 'active',
+      values.device_type === 'router'
+        ? 'offline'
+        : 'unknown',
 
     is_active: true,
   };
@@ -325,6 +324,209 @@ export async function updateDevice(
   }
 
   return data;
+}
+
+
+function isRouterDevice(device) {
+  const type = String(device?.device_type || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return ['router', 'mikrotik_router', 'routeros', 'gateway'].includes(type) || Boolean(device?.router_identity || device?.identity_name);
+}
+
+/* =========================================================
+   SITE NETWORK OVERVIEW
+========================================================= */
+
+export async function getSiteNetworkOverview(tenantId) {
+  const tenant = requireTenantId(tenantId);
+
+  const [sitesResult, devicesResult] = await Promise.all([
+    supabase
+      .from('network_sites')
+      .select('*')
+      .eq('tenant_id', tenant)
+      .order('name', { ascending: true }),
+
+    supabase
+      .from('network_devices')
+      .select('*')
+      .eq('tenant_id', tenant)
+      .order('created_at', { ascending: false }),
+  ]);
+
+  if (sitesResult.error) {
+    throw new Error(
+      `Could not load network sites: ${sitesResult.error.message}`,
+    );
+  }
+
+  if (devicesResult.error) {
+    throw new Error(
+      `Could not load network devices: ${devicesResult.error.message}`,
+    );
+  }
+
+  const sites = sitesResult.data || [];
+  const devices = devicesResult.data || [];
+
+  const ONLINE_THRESHOLD_MS = 90 * 1000;
+
+  const now = Date.now();
+
+  return sites.map((site) => {
+    const siteDevices = devices.filter(
+      (device) => device.site_id === site.id,
+    );
+
+    const routers = siteDevices.filter(isRouterDevice);
+
+    const accessPoints = siteDevices.filter((device) =>
+      ['access_point', 'ap'].includes(device.device_type),
+    );
+
+    /*
+     * Only routers send the CloudRouter heartbeat.
+     * Access points are inventory/network infrastructure
+     * unless they later run their own monitoring agent.
+     */
+    const lastSeenValues = routers
+      .map((router) => {
+        if (!router.last_seen_at) return null;
+
+        const time = new Date(router.last_seen_at).getTime();
+
+        return Number.isFinite(time)
+          ? time
+          : null;
+      })
+      .filter(Boolean);
+
+    const latestLastSeen =
+      lastSeenValues.length > 0
+        ? Math.max(...lastSeenValues)
+        : null;
+
+    const freshRouters = routers.filter((router) => {
+      if (!router.last_seen_at) return false;
+
+      const timestamp =
+        new Date(router.last_seen_at).getTime();
+
+      if (!Number.isFinite(timestamp)) {
+        return false;
+      }
+
+      return (
+        now - timestamp <=
+        ONLINE_THRESHOLD_MS
+      );
+    });
+
+    const onlineRouters =
+      freshRouters.length;
+
+    const offlineRouters =
+      routers.length - onlineRouters;
+
+    const activeUsers = routers.reduce(
+      (total, router) =>
+        total +
+        Number(
+          router.active_hotspot_users || 0,
+        ),
+      0,
+    );
+
+    const wanOffline =
+      freshRouters.some(
+        (router) =>
+          String(
+            router.wan_status || '',
+          ).toLowerCase() === 'offline',
+      );
+
+    let operationalStatus = 'needs_setup';
+
+    /*
+     * Administrative disable always wins.
+     */
+    if (!site.is_active) {
+      operationalStatus = 'disabled';
+    }
+
+    /*
+     * A site without a MikroTik router is not yet
+     * operational even if an AP has been recorded.
+     */
+    else if (routers.length === 0) {
+      operationalStatus = 'needs_setup';
+    }
+
+    /*
+     * Router registered but CloudRouter has never
+     * received its heartbeat.
+     */
+    else if (!latestLastSeen) {
+      operationalStatus =
+        'not_connected';
+    }
+
+    /*
+     * At least one router is currently reporting.
+     */
+    else if (onlineRouters > 0) {
+      operationalStatus =
+        wanOffline
+          ? 'warning'
+          : 'online';
+    }
+
+    /*
+     * Router used to report but its heartbeat has
+     * become stale.
+     */
+    else {
+      operationalStatus = 'offline';
+    }
+
+    return {
+      ...site,
+
+      device_count:
+        siteDevices.length,
+
+      router_count:
+        routers.length,
+
+      access_point_count:
+        accessPoints.length,
+
+      online_router_count:
+        onlineRouters,
+
+      offline_router_count:
+        offlineRouters,
+
+      active_hotspot_users:
+        activeUsers,
+
+      last_seen_at:
+        latestLastSeen
+          ? new Date(
+              latestLastSeen,
+            ).toISOString()
+          : null,
+
+      operational_status:
+        operationalStatus,
+
+      wan_status:
+        wanOffline
+          ? 'offline'
+          : onlineRouters > 0
+            ? 'online'
+            : 'unknown',
+    };
+  });
 }
 
 
@@ -857,6 +1059,46 @@ export async function markVoucherSold(
   return data;
 }
 
+
+/* =========================================================
+   LIVE / OPERATIONAL READERS
+========================================================= */
+
+export async function getActiveSessions(tenantId) {
+  const { data, error } = await supabase
+    .from('hotspot_active_sessions')
+    .select('*')
+    .eq('tenant_id', requireTenantId(tenantId))
+    .order('last_seen_at', { ascending: false })
+    .limit(2000);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getHistoricalSessions(tenantId) {
+  const { data, error } = await supabase
+    .from('hotspot_sessions')
+    .select('*')
+    .eq('tenant_id', requireTenantId(tenantId))
+    .order('started_at', { ascending: false })
+    .limit(5000);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getProvisioningJobs(tenantId) {
+  const { data, error } = await supabase
+    .from('router_provisioning_jobs')
+    .select('*')
+    .eq('tenant_id', requireTenantId(tenantId))
+    .order('created_at', { ascending: false })
+    .limit(1000);
+
+  if (error) throw error;
+  return data || [];
+}
 
 /* =========================================================
    GENERIC TABLE LOADER

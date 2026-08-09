@@ -46,6 +46,12 @@ function projectRefFromEnvironment() {
   );
 }
 
+
+function isRouterDevice(device) {
+  const type = String(device?.device_type || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return ['router', 'mikrotik_router', 'routeros', 'gateway'].includes(type) || Boolean(device?.router_identity || device?.identity_name);
+}
+
 export default function Devices() {
   const { tenantId } = useTenant();
 
@@ -110,7 +116,7 @@ export default function Devices() {
         row.name,
         row.device_type,
         row.model,
-        row.ip_address,
+        row.management_ip,
         row.router_identity,
         row.serial_number,
         row.mac_address,
@@ -138,9 +144,7 @@ export default function Devices() {
 
   const routers = useMemo(
     () =>
-      devices.filter(
-        (device) => device.device_type === 'router',
-      ),
+      devices.filter(isRouterDevice),
     [devices],
   );
 
@@ -410,7 +414,7 @@ export default function Devices() {
               ) : (
                 filtered.map((row) => {
                   const isRouter =
-                    row.device_type === 'router';
+                    isRouterDevice(row);
 
                   return (
                     <tr
@@ -452,7 +456,7 @@ export default function Devices() {
                         </div>
 
                         <div className="text-xs text-slate-400">
-                          {row.ip_address ||
+                          {row.management_ip ||
                             'No IP recorded'}
                         </div>
                       </td>
