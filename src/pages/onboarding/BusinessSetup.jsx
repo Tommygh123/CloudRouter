@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { FiBriefcase, FiGlobe, FiLink, FiUser, FiWifi } from 'react-icons/fi';
 
@@ -23,7 +23,12 @@ function generateSlug(value = '') {
 
 export default function BusinessSetup() {
   const { user } = useAuth();
-  const { refreshMemberships } = useTenant();
+  const {
+    refreshMemberships,
+    hasWorkspace,
+    loading: tenantLoading,
+    resolvedUserId,
+  } = useTenant();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
@@ -56,6 +61,40 @@ export default function BusinessSetup() {
   function handleSimpleChange(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  const workspaceResolvedForCurrentUser =
+    Boolean(
+      user?.id &&
+      resolvedUserId === user.id,
+    );
+
+  // Never show business creation while the authenticated user's
+  // membership is still being resolved. This route sits outside
+  // OnboardingGate, so it needs the same race-condition protection.
+  if (
+    tenantLoading ||
+    (user?.id && !workspaceResolvedForCurrentUser)
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+          <p className="mt-4 text-sm font-medium text-slate-600">
+            Checking your CloudRouter workspace...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (hasWorkspace) {
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
   }
 
   async function submit(event) {

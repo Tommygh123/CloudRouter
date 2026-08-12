@@ -1,4 +1,3 @@
-
 import { Navigate } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
@@ -13,14 +12,21 @@ export function HomeRedirect() {
   const {
     hasWorkspace,
     loading: tenantLoading,
+    resolvedUserId,
   } = useTenant();
 
-  if (authLoading || tenantLoading) {
-    return (
-      <div>
-        Loading...
-      </div>
+  const workspaceResolvedForCurrentUser =
+    Boolean(
+      user?.id &&
+      resolvedUserId === user.id,
     );
+
+  if (
+    authLoading ||
+    tenantLoading ||
+    (user && !workspaceResolvedForCurrentUser)
+  ) {
+    return <div>Loading...</div>;
   }
 
   if (!user) {
@@ -32,22 +38,16 @@ export function HomeRedirect() {
     );
   }
 
-  if (!hasWorkspace) {
-    return (
-      <Navigate
-        to="/business-setup"
-        replace
-      />
-    );
-  }
-
   return (
     <Navigate
-      to="/dashboard"
+      to={
+        hasWorkspace
+          ? '/dashboard'
+          : '/onboarding/business'
+      }
       replace
     />
   );
 }
 
 export default HomeRedirect;
-

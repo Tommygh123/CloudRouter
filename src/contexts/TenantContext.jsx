@@ -74,6 +74,13 @@ export function TenantProvider({ children }) {
   const [error, setError] =
     useState(null);
 
+  // Tracks the auth user for whom workspace membership has
+  // actually been resolved. This prevents a post-login render
+  // from treating the previous empty tenant state as a genuine
+  // 'no workspace' result before the membership request starts.
+  const [resolvedUserId, setResolvedUserId] =
+    useState(null);
+
   const resetTenantState =
     useCallback(
       ({
@@ -89,6 +96,7 @@ export function TenantProvider({ children }) {
         setCurrentMembership(null);
         setSubscription(null);
         setError(null);
+        setResolvedUserId(null);
         setLoading(false);
 
         if (clearStoredTenant) {
@@ -228,6 +236,7 @@ export function TenantProvider({ children }) {
       if (mountedRef.current) {
         setLoading(true);
         setError(null);
+        setResolvedUserId(null);
       }
 
       try {
@@ -270,6 +279,8 @@ export function TenantProvider({ children }) {
         setMemberships(
           nextMemberships,
         );
+
+        setResolvedUserId(user.id);
 
         if (
           nextMemberships.length === 0
@@ -333,6 +344,7 @@ export function TenantProvider({ children }) {
           setCurrentMembership(null);
           setSubscription(null);
           setError(nextError);
+          setResolvedUserId(user?.id ?? null);
         }
 
         return {
@@ -532,6 +544,9 @@ export function TenantProvider({ children }) {
       workspaceError: error,
 
       hasWorkspace,
+      resolvedUserId,
+      workspaceResolved:
+        Boolean(user?.id && resolvedUserId === user.id),
       hasMembership:
         memberships.length > 0,
 
@@ -560,6 +575,8 @@ export function TenantProvider({ children }) {
       loading,
       error,
       hasWorkspace,
+      resolvedUserId,
+      user?.id,
       selectTenant,
       refreshMemberships,
       clearWorkspace,

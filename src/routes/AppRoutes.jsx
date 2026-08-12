@@ -9,6 +9,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 
 import UserManagement from '../pages/admin/UserManagement';
 
+import AcceptInvite from '../pages/auth/AcceptInvite';
 import AuthCallback from '../pages/auth/AuthCallback';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import Login from '../pages/auth/Login';
@@ -22,12 +23,15 @@ import InternetPlans from '../pages/hotspot/InternetPlans';
 import Vouchers from '../pages/hotspot/Vouchers';
 import Customers from '../pages/hotspot/Customers';
 import Orders from '../pages/hotspot/Orders';
+
 import NetworkSites from '../pages/network/NetworkSites';
 import Devices from '../pages/network/Devices';
 import Sessions from '../pages/network/Sessions';
 import Monitoring from '../pages/network/Monitoring';
+
 import Reports from '../pages/reports/Reports';
 import Analytics from '../pages/analytics/Analytics';
+
 import Settings from '../pages/settings/Settings';
 import BusinessBranding from '../pages/settings/BusinessBranding';
 import CaptivePortalSettings from '../pages/settings/CaptivePortalSettings';
@@ -46,12 +50,19 @@ import LandingPage from '../pages/public/LandingPage';
 import OnboardingGate from './OnboardingGate';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
+import RoleRoute from './RoleRoute';
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public marketing and hotspot payment pages */}
-      <Route path="/" element={<LandingPage />} />
+      {/* =====================================================
+          PUBLIC PAGES
+      ====================================================== */}
+
+      <Route
+        path="/"
+        element={<LandingPage />}
+      />
 
       <Route
         path="/buy-plan"
@@ -63,7 +74,16 @@ function AppRoutes() {
         element={<PaymentCallback />}
       />
 
-      {/* Authentication pages for signed-out users */}
+      {/* Invitation acceptance must remain public */}
+      <Route
+        path="/accept-invite"
+        element={<AcceptInvite />}
+      />
+
+      {/* =====================================================
+          AUTHENTICATION PAGES
+      ====================================================== */}
+
       <Route element={<PublicRoute />}>
         <Route element={<AuthLayout />}>
           <Route
@@ -88,7 +108,7 @@ function AppRoutes() {
         </Route>
       </Route>
 
-      {/* Authentication callback pages */}
+      {/* Auth callback/reset pages should remain public */}
       <Route
         path="/reset-password"
         element={<ResetPassword />}
@@ -99,8 +119,12 @@ function AppRoutes() {
         element={<AuthCallback />}
       />
 
-      {/* Signed-in application */}
+      {/* =====================================================
+          PROTECTED APPLICATION
+      ====================================================== */}
+
       <Route element={<ProtectedRoute />}>
+        {/* Onboarding root */}
         <Route
           path="/onboarding"
           element={
@@ -111,54 +135,121 @@ function AppRoutes() {
           }
         />
 
+        {/* Business onboarding */}
         <Route
           path="/onboarding/business"
           element={<BusinessSetup />}
         />
 
+        {/* Tenant must be fully onboarded from here */}
         <Route element={<OnboardingGate />}>
           <Route
             path="/dashboard"
             element={<DashboardLayout />}
           >
-            <Route index element={<Dashboard />} />
-            <Route path="get-started" element={<GetStarted />} />
+            {/* Dashboard home */}
+            <Route
+              index
+              element={<Dashboard />}
+            />
+
+            {/* Getting started */}
+            <Route
+              path="get-started"
+              element={<RoleRoute permission="get_started"><GetStarted /></RoleRoute>}
+            />
+
+            {/* Hotspot management */}
             <Route
               path="hotspot/plans"
-              element={<InternetPlans />}
+              element={<RoleRoute permission="plans"><InternetPlans /></RoleRoute>}
             />
-
-            <Route path="hotspot/vouchers" element={<Vouchers />} />
-
-            <Route path="hotspot/customers" element={<Customers />} />
-
-            <Route path="hotspot/orders" element={<Orders />} />
-
-            <Route path="network/sites" element={<NetworkSites />} />
-
-            <Route path="network/devices" element={<Devices />} />
-
-            <Route path="network/sessions" element={<Sessions />} />
-
-            <Route path="network/monitoring" element={<Monitoring />} />
-
-            <Route path="analytics" element={<Analytics />} />
-
-            <Route path="reports" element={<Reports />} />
 
             <Route
-              path="users"
-              element={<UserManagement />}
+              path="hotspot/vouchers"
+              element={<RoleRoute permission="vouchers"><Vouchers /></RoleRoute>}
             />
 
-            <Route path="settings" element={<Settings />} />
+            <Route
+              path="hotspot/customers"
+              element={<RoleRoute permission="customers"><Customers /></RoleRoute>}
+            />
 
-            <Route path="settings/profile" element={<BusinessBranding />} />
-            <Route path="settings/captive-portal" element={<CaptivePortalSettings />} />
-            <Route path="settings/payments" element={<PaymentSettings />} />
-            <Route path="settings/vouchers" element={<VoucherSettings />} />
-            <Route path="settings/account" element={<AccountSettings />} />
+            <Route
+              path="hotspot/orders"
+              element={<RoleRoute permission="orders"><Orders /></RoleRoute>}
+            />
 
+            {/* Network management */}
+            <Route
+              path="network/sites"
+              element={<RoleRoute permission="sites"><NetworkSites /></RoleRoute>}
+            />
+
+            <Route
+              path="network/devices"
+              element={<RoleRoute permission="devices"><Devices /></RoleRoute>}
+            />
+
+            <Route
+              path="network/sessions"
+              element={<RoleRoute permission="sessions"><Sessions /></RoleRoute>}
+            />
+
+            <Route
+              path="network/monitoring"
+              element={<RoleRoute permission="monitoring"><Monitoring /></RoleRoute>}
+            />
+
+            {/* Analytics / reports */}
+            <Route
+              path="analytics"
+              element={<RoleRoute permission="analytics"><Analytics /></RoleRoute>}
+            />
+
+            <Route
+              path="reports"
+              element={<RoleRoute permission="reports"><Reports /></RoleRoute>}
+            />
+
+            {/* User management */}
+            <Route
+              path="users"
+              element={<RoleRoute permission="users"><UserManagement /></RoleRoute>}
+            />
+
+            {/* Settings */}
+            <Route
+              path="settings"
+              element={<RoleRoute permission="settings"><Settings /></RoleRoute>}
+            />
+
+            <Route
+              path="settings/profile"
+              element={<RoleRoute permission="settings"><BusinessBranding /></RoleRoute>}
+            />
+
+            <Route
+              path="settings/captive-portal"
+              element={<RoleRoute permission="settings"><CaptivePortalSettings /></RoleRoute>}
+            />
+
+            <Route
+              path="settings/payments"
+              element={<RoleRoute permission="settings"><PaymentSettings /></RoleRoute>}
+            />
+
+            <Route
+              path="settings/vouchers"
+              element={<RoleRoute permission="settings"><VoucherSettings /></RoleRoute>}
+            />
+
+            <Route
+              path="settings/account"
+              element={<RoleRoute permission="settings"><AccountSettings /></RoleRoute>}
+            />
+
+            {/* Unknown dashboard route */}
             <Route
               path="*"
               element={
@@ -172,7 +263,10 @@ function AppRoutes() {
         </Route>
       </Route>
 
-      {/* Unknown application routes */}
+      {/* =====================================================
+          FALLBACK
+      ====================================================== */}
+
       <Route
         path="*"
         element={

@@ -6,7 +6,13 @@ function App() {
   return (
     <>
       <AppRoutes />
-      <Toaster position="top-right" />
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+        }}
+      />
     </>
   );
 }

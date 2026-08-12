@@ -1,6 +1,7 @@
 import {
   Navigate,
   Outlet,
+  useLocation,
 } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
@@ -10,6 +11,8 @@ function PublicRoute() {
     user,
     loading,
   } = useAuth();
+
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -24,6 +27,20 @@ function PublicRoute() {
     );
   }
 
+  /*
+   * Always allow the explicit Sign in and Forgot password pages.
+   * This lets an operator intentionally switch accounts even when
+   * a previous Supabase session still exists in the browser.
+   */
+  if (
+    location.pathname === '/login' ||
+    location.pathname === '/forgot-password'
+  ) {
+    return <Outlet />;
+  }
+
+  // Registration/verification pages should not restart onboarding
+  // for an already authenticated account.
   if (user) {
     return (
       <Navigate

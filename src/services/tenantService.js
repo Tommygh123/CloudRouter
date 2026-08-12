@@ -48,50 +48,60 @@ export const tenantService = {
 
   async getMemberships(userId) {
     /*
-     * The AuthContext already knows who is signed in.
-     * Do not call supabase.auth.getUser() here.
+     * Workspace membership is security-sensitive and must not depend on
+     * tenant_users client-side RLS being permissive enough to discover the
+     * caller's own row. cloudrouter_my_memberships() is a SECURITY DEFINER
+     * RPC that is still strictly scoped to auth.uid().
      */
     if (!userId) {
       return createResult([], null);
     }
 
     try {
-      const { data, error } = await supabase
-        .from('tenant_users')
-        .select(`
-          id,
-          tenant_id,
-          user_id,
-          role_id,
-          status,
-          created_at,
-          tenants:tenant_id (
-            id,
-            business_name,
-            logo_url,
-            slug,
-            industry_id,
-            country,
-            currency_code,
-            timezone,
-            status,
-            created_at,
-            updated_at
-          ),
-          roles:role_id (
-            id,
-            tenant_id,
-            name,
-            code,
-            description,
-            is_system_role,
-            is_active
-          )
-        `)
-        .eq('user_id', userId)
-        .eq('status', 'active');
+      const {
+        data: sessionData,
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      return createResult(data ?? [], error);
+      if (sessionError) {
+        return createResult([], sessionError);
+      }
+
+      const authenticatedUserId =
+        sessionData?.session?.user?.id;
+
+      if (!authenticatedUserId) {
+        return createResult(
+          [],
+          new Error('Your session has expired. Please sign in again.'),
+        );
+      }
+
+      if (authenticatedUserId !== userId) {
+        return createResult(
+          [],
+          new Error('The requested workspace user does not match the signed-in account.'),
+        );
+      }
+
+      const { data, error } = await supabase.rpc(
+        'cloudrouter_my_memberships',
+      );
+
+      if (error) {
+        console.error(
+          'Could not load memberships through cloudrouter_my_memberships():',
+          error,
+        );
+
+        return createResult([], error);
+      }
+
+      const memberships = Array.isArray(data)
+        ? data
+        : [];
+
+      return createResult(memberships, null);
     } catch (error) {
       console.error(
         'Could not load memberships:',

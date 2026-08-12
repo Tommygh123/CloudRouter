@@ -6,35 +6,42 @@ import {
 import { NavLink } from 'react-router-dom';
 import { useTenant } from '../../hooks/useTenant';
 import { TenantLogo } from '../branding/TenantBrand';
+import { hasRolePermission, roleLabel } from '../../config/rolePermissions';
 
 const menuSections = [
   { title: 'Overview', items: [
-    { label: 'Dashboard', path: '/dashboard', icon: FiHome },
-    { label: 'Get Started', path: '/dashboard/get-started', icon: FiCompass },
+    { label: 'Dashboard', path: '/dashboard', icon: FiHome, permission: 'dashboard' },
+    { label: 'Get Started', path: '/dashboard/get-started', icon: FiCompass, permission: 'get_started' },
   ] },
   { title: 'Hotspot Business', items: [
-    { label: 'Internet Plans', path: '/dashboard/hotspot/plans', icon: FiWifi },
-    { label: 'Vouchers', path: '/dashboard/hotspot/vouchers', icon: FiCreditCard },
-    { label: 'Customers', path: '/dashboard/hotspot/customers', icon: FiUsers },
-    { label: 'Orders & Payments', path: '/dashboard/hotspot/orders', icon: FiShoppingCart },
+    { label: 'Internet Plans', path: '/dashboard/hotspot/plans', icon: FiWifi, permission: 'plans' },
+    { label: 'Vouchers', path: '/dashboard/hotspot/vouchers', icon: FiCreditCard, permission: 'vouchers' },
+    { label: 'Customers', path: '/dashboard/hotspot/customers', icon: FiUsers, permission: 'customers' },
+    { label: 'Orders & Payments', path: '/dashboard/hotspot/orders', icon: FiShoppingCart, permission: 'orders' },
   ]},
   { title: 'Network', items: [
-    { label: 'Network Sites', path: '/dashboard/network/sites', icon: FiMapPin },
-    { label: 'Routers & APs', path: '/dashboard/network/devices', icon: FiRadio },
-    { label: 'Active Sessions', path: '/dashboard/network/sessions', icon: FiMonitor },
-    { label: 'Monitoring', path: '/dashboard/network/monitoring', icon: FiActivity },
+    { label: 'Network Sites', path: '/dashboard/network/sites', icon: FiMapPin, permission: 'sites' },
+    { label: 'Routers & APs', path: '/dashboard/network/devices', icon: FiRadio, permission: 'devices' },
+    { label: 'Active Sessions', path: '/dashboard/network/sessions', icon: FiMonitor, permission: 'sessions' },
+    { label: 'Monitoring', path: '/dashboard/network/monitoring', icon: FiActivity, permission: 'monitoring' },
   ]},
   { title: 'Management', items: [
-    { label: 'Analytics', path: '/dashboard/analytics', icon: FiTrendingUp },
-    { label: 'Reports', path: '/dashboard/reports', icon: FiBarChart2 },
-    { label: 'User Management', path: '/dashboard/users', icon: FiUserPlus },
-    { label: 'Settings', path: '/dashboard/settings', icon: FiSettings },
+    { label: 'Analytics', path: '/dashboard/analytics', icon: FiTrendingUp, permission: 'analytics' },
+    { label: 'Reports', path: '/dashboard/reports', icon: FiBarChart2, permission: 'reports' },
+    { label: 'User Management', path: '/dashboard/users', icon: FiUserPlus, permission: 'users' },
+    { label: 'Settings', path: '/dashboard/settings', icon: FiSettings, permission: 'settings' },
   ]},
 ];
 
 export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }) {
-  const { currentTenant } = useTenant();
+  const { currentTenant, roleCode } = useTenant();
   const tenantName = currentTenant?.business_name || currentTenant?.name || 'Your hotspot business';
+  const visibleSections = menuSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => hasRolePermission(roleCode, item.permission)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   function handleMobileNavigation() {
     if (window.innerWidth < 1024) onClose?.();
@@ -58,12 +65,12 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }) 
 
         {!collapsed && <div className="mt-4 rounded-2xl border border-blue-400/20 bg-white/5 p-3">
           <div className="flex items-center gap-3"><TenantLogo tenant={currentTenant} size="sm" className="border-white/10" /><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-blue-300">Current Business</p><p className="mt-1 truncate text-sm font-bold text-white" title={tenantName}>{tenantName}</p></div></div>
-          <p className="mt-2 text-[10px] text-slate-400">Powered by CloudRouter</p>
+          <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-400"><span>Powered by CloudRouter</span><span className="rounded-full bg-blue-500/10 px-2 py-1 font-semibold text-blue-200">{roleLabel(roleCode)}</span></div>
         </div>}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5">
-        {menuSections.map((section) => <div key={section.title} className="mb-6">
+        {visibleSections.map((section) => <div key={section.title} className="mb-6">
           {!collapsed && <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.title}</p>}
           <div className="space-y-1">{section.items.map((item) => { const Icon = item.icon; return <NavLink key={item.path} to={item.path} end={item.path === '/dashboard'} onClick={handleMobileNavigation} title={collapsed ? item.label : undefined} className={({isActive}) => [
             'group flex min-h-11 items-center rounded-xl px-3 text-sm font-medium transition-colors',
