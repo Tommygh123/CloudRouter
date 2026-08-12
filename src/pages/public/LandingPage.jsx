@@ -182,7 +182,6 @@ export default function LandingPage() {
 
         <section className="relative isolate min-h-[760px] overflow-hidden pt-[84px]">
 
-          {/* Background image */}
           <img
             src={heroImage}
             alt=""
@@ -190,19 +189,12 @@ export default function LandingPage() {
             className="absolute inset-0 -z-30 h-full w-full object-cover object-center brightness-[0.95] saturate-[1.08] contrast-[1.03]"
           />
 
-          {/* Gentle global overlay */}
           <div className="absolute inset-0 -z-20 bg-slate-950/15" />
 
-          {/*
-            Stronger shading on left where text appears.
-            Image becomes progressively brighter toward the right.
-          */}
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/90 via-slate-950/48 to-slate-950/5" />
 
-          {/* Header transition */}
           <div className="absolute inset-x-0 top-0 -z-10 h-36 bg-gradient-to-b from-slate-950/45 to-transparent" />
 
-          {/* Bottom transition */}
           <div className="absolute inset-x-0 bottom-0 -z-10 h-44 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
 
 
@@ -585,13 +577,13 @@ export default function LandingPage() {
             FINAL CTA
         ====================================================== */}
 
-        <section className="bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 py-20">
+        <section className="bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 py-20 text-white">
 
           <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-4 sm:px-6 lg:flex-row lg:items-center lg:px-8">
 
             <div className="max-w-3xl">
 
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-100">
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-white">
                 Start with CloudRouter
               </p>
 
@@ -599,7 +591,7 @@ export default function LandingPage() {
                 Ready to run your hotspot professionally?
               </h2>
 
-              <p className="mt-3 text-lg text-blue-50">
+              <p className="mt-3 text-lg font-medium leading-8 text-white">
                 Create your workspace, configure your first
                 network site and connect your MikroTik router.
               </p>
@@ -609,7 +601,7 @@ export default function LandingPage() {
 
             <Link
               to="/register"
-              className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-white px-7 py-4 font-bold text-blue-700 shadow-2xl transition hover:-translate-y-0.5 hover:bg-blue-50"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-blue bg-blue px-7 py-4 font-bold text-blue-700 shadow-2xl transition hover:-translate-y-0.5 hover:bg-blue-50"
             >
               Get Started Free
 

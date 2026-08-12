@@ -1,3 +1,5 @@
+// src/layouts/DashboardLayout.jsx
+
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
@@ -10,8 +12,10 @@ function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
+  const [
+    sidebarCollapsed,
+    setSidebarCollapsed,
+  ] = useState(false);
 
   const { currentTenant } = useTenant();
 
@@ -31,7 +35,7 @@ function DashboardLayout() {
         }
         onToggleCollapse={() =>
           setSidebarCollapsed(
-            (value) => !value
+            (current) => !current,
           )
         }
       />
@@ -44,6 +48,7 @@ function DashboardLayout() {
             : 'lg:pl-72',
         ].join(' ')}
       >
+
         <Topbar
           onMenu={() =>
             setSidebarOpen(true)
@@ -52,8 +57,10 @@ function DashboardLayout() {
 
         <main className="min-h-[calc(100vh-5rem)] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(6,182,212,0.08),transparent_30%)]">
 
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
+
             <Outlet />
+
           </div>
 
         </main>
@@ -85,7 +92,9 @@ function DashboardLayout() {
           </div>
 
         </footer>
+
       </div>
+
     </div>
   );
 }
