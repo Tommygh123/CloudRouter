@@ -17,6 +17,7 @@ import {
 } from "react-icons/fi";
 
 import {
+  getCustomerAccessStatus,
   getPublicOnlinePlans,
   initializeOnlinePlanPayment,
   resolvePurchaseTenantId,
@@ -173,6 +174,33 @@ function createFallbackEmail(phone) {
   return `cloudrouter.customer.${customerId}@gmail.com`;
 }
 
+
+function secondsToText(seconds) {
+  const value = Math.max(0, Number(seconds || 0));
+
+  if (!value) {
+    return "0 minutes";
+  }
+
+  const days = Math.floor(value / 86400);
+  const hours = Math.floor((value % 86400) / 3600);
+  const minutes = Math.floor((value % 3600) / 60);
+
+  if (days) {
+    return `${days} day${days === 1 ? "" : "s"}${
+      hours ? ` ${hours} hr` : ""
+    }`;
+  }
+
+  if (hours) {
+    return `${hours} hr${hours === 1 ? "" : "s"}${
+      minutes ? ` ${minutes} min` : ""
+    }`;
+  }
+
+  return `${Math.max(minutes, 1)} min`;
+}
+
 function BuyPlan() {
   const tenantId = useMemo(
     () => resolvePurchaseTenantId(),
@@ -195,7 +223,13 @@ function BuyPlan() {
 
   const hotspotContext = useMemo(() => {
     if (typeof window === "undefined") {
-      return { returnUrl: "", dst: "" };
+      return {
+        returnUrl: "",
+        dst: "",
+        macAddress: "",
+        username: "",
+        ipAddress: "",
+      };
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -203,6 +237,21 @@ function BuyPlan() {
     return {
       returnUrl: String(params.get("return_url") || "").trim(),
       dst: String(params.get("dst") || "").trim(),
+      macAddress: String(
+        params.get("mac") ||
+        params.get("mac_address") ||
+        "",
+      ).trim(),
+      username: String(
+        params.get("username") ||
+        params.get("user") ||
+        "",
+      ).trim(),
+      ipAddress: String(
+        params.get("ip") ||
+        params.get("ip_address") ||
+        "",
+      ).trim(),
     };
   }, []);
 
@@ -254,6 +303,9 @@ function BuyPlan() {
     setErrorMessage,
   ] = useState("");
 
+  const [accessStatus, setAccessStatus] = useState(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+
   const selectedPlan = useMemo(
     () =>
       plans.find(
@@ -261,6 +313,50 @@ function BuyPlan() {
       ) || null,
     [plans, selectedPlanId],
   );
+
+  const loadAccessStatus = useCallback(async () => {
+    if (!tenantId) {
+      return;
+    }
+
+    const hasIdentity =
+      hotspotContext.macAddress ||
+      hotspotContext.username ||
+      hotspotContext.ipAddress;
+
+    if (!hasIdentity) {
+      setAccessStatus(null);
+      return;
+    }
+
+    try {
+      setAccessLoading(true);
+
+      const data = await getCustomerAccessStatus({
+        tenantId,
+        macAddress: hotspotContext.macAddress,
+        username: hotspotContext.username,
+        ipAddress: hotspotContext.ipAddress,
+      });
+
+      setAccessStatus(data);
+    } catch (error) {
+      // Usage status must never block buying Internet.
+      console.warn("Current access lookup failed:", error);
+      setAccessStatus(null);
+    } finally {
+      setAccessLoading(false);
+    }
+  }, [
+    tenantId,
+    hotspotContext.macAddress,
+    hotspotContext.username,
+    hotspotContext.ipAddress,
+  ]);
+
+  useEffect(() => {
+    loadAccessStatus();
+  }, [loadAccessStatus]);
 
   const loadPlans = useCallback(async () => {
     try {
@@ -548,6 +644,103 @@ function BuyPlan() {
       </section>
 
       <section className="buy-plan-content">
+        {(accessLoading || accessStatus?.hasAccess) && (
+          <section
+            className={`buy-plan-access-card buy-plan-access-${
+              accessStatus?.warning_level || "normal"
+            }`}
+          >
+            {accessLoading ? (
+              <div className="buy-plan-access-loading">
+                <FiRefreshCw size={20} />
+                <strong>Checking your current Internet package...</strong>
+              </div>
+            ) : (
+              <>
+                <div className="buy-plan-access-head">
+                  <div>
+                    <p className="buy-plan-access-eyebrow">
+                      Your Internet
+                    </p>
+                    <h2>{accessStatus.plan_name || "Current package"}</h2>
+                  </div>
+
+                  <span className="buy-plan-access-status">
+                    {String(
+                      accessStatus.effective_status ||
+                      accessStatus.status ||
+                      "active",
+                    ).toUpperCase()}
+                  </span>
+                </div>
+
+                {accessStatus.data_limit_bytes ? (
+                  <>
+                    <div className="buy-plan-progress">
+                      <span
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              Number(accessStatus.data_used_percent || 0),
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+
+                    <div className="buy-plan-access-percent">
+                      {Number(accessStatus.data_used_percent || 0).toFixed(1)}% used
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="buy-plan-access-stats">
+                  <div>
+                    <span>Used</span>
+                    <strong>{bytesToText(accessStatus.bytes_used)}</strong>
+                  </div>
+
+                  <div>
+                    <span>Remaining</span>
+                    <strong>
+                      {accessStatus.data_limit_bytes
+                        ? bytesToText(accessStatus.data_remaining_bytes)
+                        : "Unlimited"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Time left</span>
+                    <strong>
+                      {accessStatus.validity_remaining_seconds == null
+                        ? "No fixed expiry"
+                        : secondsToText(
+                            accessStatus.validity_remaining_seconds,
+                          )}
+                    </strong>
+                  </div>
+                </div>
+
+                {accessStatus.message && (
+                  <p className="buy-plan-access-message">
+                    {accessStatus.message}
+                  </p>
+                )}
+
+                <a
+                  href="#available-plans"
+                  className="buy-plan-renew-button"
+                >
+                  Buy / Renew Internet
+                  <FiArrowRight size={16} />
+                </a>
+              </>
+            )}
+          </section>
+        )}
+
         {errorMessage && (
           <div
             role="alert"
@@ -589,7 +782,7 @@ function BuyPlan() {
         ) : (
           <form onSubmit={handlePay}>
             <div className="buy-plan-layout">
-              <section className="buy-plan-plans-section">
+              <section id="available-plans" className="buy-plan-plans-section">
                 <div className="buy-plan-section-heading">
                   <span className="buy-plan-step">
                     1

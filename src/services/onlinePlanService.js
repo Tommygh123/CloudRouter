@@ -755,3 +755,59 @@ export async function getProvisioningStatus({
     raw: data,
   };
 }
+
+/**
+ * Loads the current customer's safe, public-facing Internet usage summary.
+ *
+ * The Edge Function performs the privileged lookup. The browser never queries
+ * hotspot_access_entitlement_usage directly.
+ */
+export async function getCustomerAccessStatus({
+  tenantId,
+  macAddress,
+  username,
+  ipAddress,
+}) {
+  const cleanTenantId = String(tenantId || "").trim();
+  const cleanMacAddress = String(macAddress || "").trim();
+  const cleanUsername = String(username || "").trim();
+  const cleanIpAddress = String(ipAddress || "").trim();
+
+  if (!cleanTenantId) {
+    throw new Error("Tenant ID is required.");
+  }
+
+  // No device identity means there is nothing safe to resolve yet.
+  if (!cleanMacAddress && !cleanUsername && !cleanIpAddress) {
+    return {
+      hasAccess: false,
+      identifiable: false,
+    };
+  }
+
+  const { data, error } = await supabase.functions.invoke(
+    "customer-access-status",
+    {
+      body: {
+        tenant_id: cleanTenantId,
+        mac_address: cleanMacAddress || null,
+        username: cleanUsername || null,
+        ip_address: cleanIpAddress || null,
+      },
+    },
+  );
+
+  if (error) {
+    const message = await extractFunctionError(
+      error,
+      "Unable to load current Internet usage.",
+    );
+    throw new Error(message);
+  }
+
+  return {
+    ...(data || {}),
+    hasAccess: data?.has_access === true,
+    identifiable: true,
+  };
+}

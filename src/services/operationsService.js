@@ -262,10 +262,16 @@ export async function createDevice(
       ),
 
     router_identity:
-      cleanText(
-        values.router_identity,
-      ) ||
-      values.name.trim(),
+      values.device_type === 'router'
+        ? (
+            cleanText(
+              values.router_identity,
+            ) ||
+            values.name.trim()
+          )
+        : cleanText(
+            values.router_identity,
+          ),
 
     router_secret:
       values.router_secret ||
@@ -328,8 +334,18 @@ export async function updateDevice(
 
 
 function isRouterDevice(device) {
-  const type = String(device?.device_type || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
-  return ['router', 'mikrotik_router', 'routeros', 'gateway'].includes(type) || Boolean(device?.router_identity || device?.identity_name);
+  const type = String(device?.device_type || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  return [
+    'router',
+    'mikrotik_router',
+    'routeros',
+    'gateway',
+    'gateway_router',
+  ].includes(type);
 }
 
 /* =========================================================
@@ -379,9 +395,19 @@ export async function getSiteNetworkOverview(tenantId) {
 
     const routers = siteDevices.filter(isRouterDevice);
 
-    const accessPoints = siteDevices.filter((device) =>
-      ['access_point', 'ap'].includes(device.device_type),
-    );
+    const accessPoints = siteDevices.filter((device) => {
+      const type = String(device?.device_type || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_');
+
+      return [
+        'access_point',
+        'accesspoint',
+        'ap',
+        'wireless_ap',
+      ].includes(type);
+    });
 
     /*
      * Only routers send the CloudRouter heartbeat.
@@ -1069,6 +1095,7 @@ export async function getActiveSessions(tenantId) {
     .from('hotspot_active_sessions')
     .select('*')
     .eq('tenant_id', requireTenantId(tenantId))
+    .eq('status', 'online')
     .order('last_seen_at', { ascending: false })
     .limit(2000);
 

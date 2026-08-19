@@ -459,3 +459,166 @@
     padding: 15px;
   }
 }
+
+/* ============================================================
+   CURRENT CUSTOMER INTERNET / USAGE PANEL
+   ============================================================ */
+
+.buy-plan-access-card {
+  margin-bottom: 26px;
+  padding: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  background: white;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+}
+
+.buy-plan-access-warning {
+  border-color: #fbbf24;
+}
+
+.buy-plan-access-critical,
+.buy-plan-access-ended {
+  border-color: #fb7185;
+}
+
+.buy-plan-access-loading {
+  display: flex;
+  align-items: center;
+  color: #475569;
+  gap: 10px;
+}
+
+.buy-plan-access-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.buy-plan-access-eyebrow {
+  margin: 0 0 5px;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.buy-plan-access-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.buy-plan-access-status {
+  padding: 6px 10px;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 900;
+  border-radius: 999px;
+  background: #dcfce7;
+}
+
+.buy-plan-access-warning .buy-plan-access-status {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.buy-plan-access-critical .buy-plan-access-status,
+.buy-plan-access-ended .buy-plan-access-status {
+  color: #9f1239;
+  background: #ffe4e6;
+}
+
+.buy-plan-progress {
+  height: 10px;
+  margin-top: 20px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.buy-plan-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  color: #4f46e5;
+}
+
+.buy-plan-access-percent {
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.buy-plan-access-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 17px;
+  gap: 10px;
+}
+
+.buy-plan-access-stats div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 13px;
+  background: #f8fafc;
+}
+
+.buy-plan-access-stats span,
+.buy-plan-access-stats strong {
+  display: block;
+}
+
+.buy-plan-access-stats span {
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.buy-plan-access-stats strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.buy-plan-access-message {
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+
+.buy-plan-renew-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 17px;
+  padding: 10px 14px;
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  border-radius: 10px;
+  background: #4f46e5;
+  gap: 7px;
+}
+
+@media (max-width: 640px) {
+  .buy-plan-access-card {
+    padding: 17px;
+  }
+
+  .buy-plan-access-head h2 {
+    font-size: 19px;
+  }
+
+  .buy-plan-access-stats {
+    grid-template-columns: 1fr;
+  }
+}

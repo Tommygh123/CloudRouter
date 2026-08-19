@@ -11,6 +11,7 @@ import {
   FiMonitor,
   FiRadio,
   FiSettings,
+  FiSmartphone,
   FiShoppingCart,
   FiTrendingUp,
   FiUserPlus,
@@ -108,6 +109,14 @@ const menuSections = [
           '/dashboard/network/devices',
         icon: FiRadio,
         permission: 'devices',
+      },
+
+      {
+        label: 'Wi-Fi Onboarding',
+        path:
+          '/dashboard/network/wifi-onboarding',
+        icon: FiSmartphone,
+        permission: 'sites',
       },
 
       {

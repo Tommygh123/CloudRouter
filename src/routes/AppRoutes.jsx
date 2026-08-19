@@ -26,6 +26,7 @@ import Orders from '../pages/hotspot/Orders';
 
 import NetworkSites from '../pages/network/NetworkSites';
 import Devices from '../pages/network/Devices';
+import WifiOnboarding from '../pages/network/WifiOnboarding';
 import Sessions from '../pages/network/Sessions';
 import Monitoring from '../pages/network/Monitoring';
 
@@ -189,6 +190,11 @@ function AppRoutes() {
             <Route
               path="network/devices"
               element={<RoleRoute permission="devices"><Devices /></RoleRoute>}
+            />
+
+            <Route
+              path="network/wifi-onboarding"
+              element={<RoleRoute permission="sites"><WifiOnboarding /></RoleRoute>}
             />
 
             <Route
