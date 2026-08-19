@@ -574,6 +574,27 @@ function BuyPlan() {
         selectedPlan.id,
       );
 
+      if (hotspotContext.macAddress) {
+        callbackUrl.searchParams.set(
+          "mac",
+          hotspotContext.macAddress,
+        );
+      }
+
+      if (hotspotContext.ipAddress) {
+        callbackUrl.searchParams.set(
+          "ip",
+          hotspotContext.ipAddress,
+        );
+      }
+
+      if (hotspotContext.username) {
+        callbackUrl.searchParams.set(
+          "username",
+          hotspotContext.username,
+        );
+      }
+
       const planPrice = Number(
         selectedPlan.selling_price ??
           selectedPlan.price ??
@@ -629,6 +650,15 @@ function BuyPlan() {
           email: customerEmail,
           callbackUrl:
             callbackUrl.toString(),
+
+          customerMacAddress:
+            hotspotContext.macAddress || null,
+
+          customerIpAddress:
+            hotspotContext.ipAddress || null,
+
+          customerUsername:
+            hotspotContext.username || null,
         });
 
       if (!result?.authorizationUrl) {

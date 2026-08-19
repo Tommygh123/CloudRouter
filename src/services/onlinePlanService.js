@@ -159,6 +159,9 @@ export async function initializeOnlinePlanPayment({
   phone,
   email,
   callbackUrl,
+  customerMacAddress,
+  customerIpAddress,
+  customerUsername,
 }) {
   const cleanTenantId = String(
     tenantId || "",
@@ -188,6 +191,18 @@ export async function initializeOnlinePlanPayment({
 
   const cleanCallbackUrl = String(
     callbackUrl || "",
+  ).trim();
+
+  const cleanCustomerMacAddress = String(
+    customerMacAddress || "",
+  ).trim();
+
+  const cleanCustomerIpAddress = String(
+    customerIpAddress || "",
+  ).trim();
+
+  const cleanCustomerUsername = String(
+    customerUsername || "",
   ).trim();
 
   const numericAmount = Number(amount);
@@ -234,10 +249,21 @@ export async function initializeOnlinePlanPayment({
   }
 
   const requestBody = {
+    // Canonical fields expected by paystack-initialize.
+    planId: cleanPlanId,
+    customerName: cleanFullName,
+    customerPhone: cleanPhone,
+    customerEmail: cleanEmail,
+    customerMacAddress:
+      cleanCustomerMacAddress || null,
+    customerIpAddress:
+      cleanCustomerIpAddress || null,
+    callbackUrl: cleanCallbackUrl,
+
+    // CloudRouter context and compatibility aliases.
     tenantId: cleanTenantId,
     tenant_id: cleanTenantId,
 
-    planId: cleanPlanId,
     plan_id: cleanPlanId,
 
     routerId:
@@ -267,8 +293,17 @@ export async function initializeOnlinePlanPayment({
     customer_email:
       cleanEmail,
 
-    callbackUrl:
-      cleanCallbackUrl,
+    customer_mac_address:
+      cleanCustomerMacAddress || null,
+
+    customer_ip_address:
+      cleanCustomerIpAddress || null,
+
+    customerUsername:
+      cleanCustomerUsername || null,
+
+    customer_username:
+      cleanCustomerUsername || null,
 
     callback_url:
       cleanCallbackUrl,
@@ -291,6 +326,15 @@ export async function initializeOnlinePlanPayment({
 
       customer_email:
         cleanEmail,
+
+      customer_mac_address:
+        cleanCustomerMacAddress || null,
+
+      customer_ip_address:
+        cleanCustomerIpAddress || null,
+
+      customer_username:
+        cleanCustomerUsername || null,
     },
   };
 

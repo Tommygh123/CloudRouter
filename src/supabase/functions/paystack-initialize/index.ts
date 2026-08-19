@@ -8,13 +8,32 @@ const corsHeaders = {
 };
 
 type InitializePaymentRequest = {
-  planId: string;
-  customerName: string;
-  customerPhone: string;
+  planId?: string;
+  plan_id?: string;
+
+  customerName?: string;
+  fullName?: string;
+  full_name?: string;
+
+  customerPhone?: string;
+  phone?: string;
+  customer_phone?: string;
+
   customerEmail?: string;
+  email?: string;
+  customer_email?: string;
+
   customerMacAddress?: string;
+  customer_mac_address?: string;
+
   customerIpAddress?: string;
+  customer_ip_address?: string;
+
+  customerUsername?: string;
+  customer_username?: string;
+
   callbackUrl?: string;
+  callback_url?: string;
 };
 
 type HotspotPlan = {
@@ -198,18 +217,45 @@ Deno.serve(async (request: Request) => {
       );
     }
 
-    const planId = cleanText(body.planId);
-    const customerName = cleanText(body.customerName);
+    const planId =
+      cleanText(body.planId) ||
+      cleanText(body.plan_id);
+
+    const customerName =
+      cleanText(body.customerName) ||
+      cleanText(body.fullName) ||
+      cleanText(body.full_name);
+
     const customerPhone = normalizePhone(
-      cleanText(body.customerPhone),
+      cleanText(body.customerPhone) ||
+      cleanText(body.phone) ||
+      cleanText(body.customer_phone),
     );
-    const suppliedEmail = cleanText(body.customerEmail).toLowerCase();
+
+    const suppliedEmail = (
+      cleanText(body.customerEmail) ||
+      cleanText(body.email) ||
+      cleanText(body.customer_email)
+    ).toLowerCase();
+
     const customerMacAddress =
-      cleanText(body.customerMacAddress) || null;
+      cleanText(body.customerMacAddress) ||
+      cleanText(body.customer_mac_address) ||
+      null;
+
     const customerIpAddress =
-      cleanText(body.customerIpAddress) || null;
+      cleanText(body.customerIpAddress) ||
+      cleanText(body.customer_ip_address) ||
+      null;
+
+    const customerUsername =
+      cleanText(body.customerUsername) ||
+      cleanText(body.customer_username) ||
+      null;
+
     const callbackUrl =
       cleanText(body.callbackUrl) ||
+      cleanText(body.callback_url) ||
       cleanText(defaultCallbackUrl);
 
     if (!planId) {
@@ -488,6 +534,10 @@ Deno.serve(async (request: Request) => {
         transaction_id: transaction.id,
         customer_name: customerName,
         customer_phone: customerPhone,
+        customer_email: customerEmail,
+        customer_mac_address: customerMacAddress,
+        customer_ip_address: customerIpAddress,
+        customer_username: customerUsername,
       }),
     };
 
