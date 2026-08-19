@@ -22,6 +22,9 @@ import {
   initializeOnlinePlanPayment,
   resolvePurchaseTenantId,
 } from "../../services/onlinePlanService";
+import {
+  saveCustomerPortalContext,
+} from "../../services/customerPortalContext";
 
 import "./BuyPlan.css";
 
@@ -254,6 +257,25 @@ function BuyPlan() {
       ).trim(),
     };
   }, []);
+
+  useEffect(() => {
+    if (!tenantId) {
+      return;
+    }
+
+    if (
+      hotspotContext.macAddress ||
+      hotspotContext.username ||
+      hotspotContext.ipAddress
+    ) {
+      saveCustomerPortalContext({
+        tenantId,
+        macAddress: hotspotContext.macAddress,
+        username: hotspotContext.username,
+        ipAddress: hotspotContext.ipAddress,
+      });
+    }
+  }, [tenantId, hotspotContext]);
 
   useEffect(() => {
     if (!hotspotContext.returnUrl || typeof window === "undefined") {

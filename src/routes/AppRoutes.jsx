@@ -45,6 +45,7 @@ import GetStarted from '../pages/onboarding/GetStarted';
 
 import BuyPlan from '../pages/portal/BuyPlan';
 import PaymentCallback from '../pages/portal/PaymentCallback';
+import MyInternet from '../pages/portal/MyInternet';
 
 import LandingPage from '../pages/public/LandingPage';
 
@@ -73,6 +74,11 @@ function AppRoutes() {
       <Route
         path="/payment/callback"
         element={<PaymentCallback />}
+      />
+
+      <Route
+        path="/my-internet"
+        element={<MyInternet />}
       />
 
       {/* Invitation acceptance must remain public */}
