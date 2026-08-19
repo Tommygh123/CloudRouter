@@ -84,7 +84,28 @@ export function resolveCustomerPortalContext() {
 }
 
 export function buildCustomerPurchaseUrl(context = {}) {
-  const url = new URL("/buy-plan", window.location.origin);
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://cloudrouter.vercel.app";
+
+  const url = new URL("/buy-plan", origin);
+
+  if (context.tenantId) url.searchParams.set("tenant_id", context.tenantId);
+  if (context.macAddress) url.searchParams.set("mac", context.macAddress);
+  if (context.ipAddress) url.searchParams.set("ip", context.ipAddress);
+  if (context.username) url.searchParams.set("username", context.username);
+
+  return url.toString();
+}
+
+export function buildCustomerMyInternetUrl(context = {}) {
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://cloudrouter.vercel.app";
+
+  const url = new URL("/my-internet", origin);
 
   if (context.tenantId) url.searchParams.set("tenant_id", context.tenantId);
   if (context.macAddress) url.searchParams.set("mac", context.macAddress);

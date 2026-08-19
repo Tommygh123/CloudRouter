@@ -36,3 +36,14 @@
 .my-internet-spin { animation:myInternetSpin 1s linear infinite; }
 @keyframes myInternetSpin { to { transform:rotate(360deg); } }
 @media(max-width:640px){ .my-internet-page{padding:16px}.my-internet-header{align-items:flex-start}.my-internet-refresh{padding:9px 11px}.my-internet-card,.my-internet-empty{padding:20px}.my-internet-card-head h1{font-size:22px}.my-internet-stats{grid-template-columns:1fr}.my-internet-card-head{flex-direction:column}.my-internet-card-head>span{align-self:flex-start} }
+
+
+.my-internet-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}

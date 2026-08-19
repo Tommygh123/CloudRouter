@@ -622,3 +622,28 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.buy-plan-balance-shortcut {
+  width: min(1100px, calc(100% - 32px));
+  margin: 14px auto 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.buy-plan-balance-shortcut a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.buy-plan-balance-shortcut a:hover {
+  background: #e0e7ff;
+}

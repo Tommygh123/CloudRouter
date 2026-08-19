@@ -23,6 +23,7 @@ import {
   resolvePurchaseTenantId,
 } from "../../services/onlinePlanService";
 import {
+  buildCustomerMyInternetUrl,
   saveCustomerPortalContext,
 } from "../../services/customerPortalContext";
 
@@ -257,6 +258,26 @@ function BuyPlan() {
       ).trim(),
     };
   }, []);
+
+  const myInternetUrl = useMemo(() => {
+    if (
+      !tenantId ||
+      !(
+        hotspotContext.macAddress ||
+        hotspotContext.username ||
+        hotspotContext.ipAddress
+      )
+    ) {
+      return "";
+    }
+
+    return buildCustomerMyInternetUrl({
+      tenantId,
+      macAddress: hotspotContext.macAddress,
+      username: hotspotContext.username,
+      ipAddress: hotspotContext.ipAddress,
+    });
+  }, [tenantId, hotspotContext]);
 
   useEffect(() => {
     if (!tenantId) {
@@ -664,6 +685,15 @@ function BuyPlan() {
           </div>
         </div>
       </section>
+
+      {myInternetUrl && (
+        <div className="buy-plan-balance-shortcut">
+          <a href={myInternetUrl}>
+            <FiWifi size={16} />
+            Check My Balance / My Internet
+          </a>
+        </div>
+      )}
 
       <section className="buy-plan-content">
         {(accessLoading || accessStatus?.hasAccess) && (

@@ -83,11 +83,30 @@ export default function MyInternet() {
     load();
   }, [load]);
 
-  const purchaseUrl = identifiable
-    ? buildCustomerPurchaseUrl(context)
-    : context.tenantId
+  useEffect(() => {
+    if (!identifiable || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        load();
+      }
+    };
+
+    const timer = window.setInterval(refreshIfVisible, 30000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [identifiable, load]);
+
+  const purchaseUrl =
+    context.tenantId
       ? buildCustomerPurchaseUrl(context)
-      : "/buy-plan";
+      : "";
 
   const warning = String(status?.warning_level || "normal").toLowerCase();
   const percentage = Math.min(100, Math.max(0, Number(status?.data_used_percent || 0)));
@@ -115,11 +134,15 @@ export default function MyInternet() {
             <FiWifi />
             <h1>Open My Internet from your Wi-Fi access page</h1>
             <p>
-              This browser has not yet stored your hotspot device details. Use the
-              <strong> Check Balance / My Internet </strong>button on the KanWave captive portal,
-              or open Buy Internet once from that same device.
+              This browser has not yet received your hotspot device details.
+              Open <strong>Check Balance / My Internet</strong> from the KanWave
+              captive portal on this same device. After that, this short page can
+              be bookmarked and opened directly.
             </p>
-            <a href={purchaseUrl}>Buy Internet <FiArrowRight /></a>
+            <p className="my-internet-note">
+              No account details are required here. KanWave supplies the device
+              identity automatically from the hotspot page.
+            </p>
           </section>
         ) : loading ? (
           <section className="my-internet-empty">
@@ -138,7 +161,9 @@ export default function MyInternet() {
             <FiWifi />
             <h1>No active Internet package found</h1>
             <p>Choose a package to get connected or renew your access.</p>
-            <a href={purchaseUrl}>Buy Internet <FiArrowRight /></a>
+            {purchaseUrl ? (
+              <a href={purchaseUrl}>Buy Internet <FiArrowRight /></a>
+            ) : null}
           </section>
         ) : (
           <>
@@ -171,9 +196,11 @@ export default function MyInternet() {
               )}
             </section>
 
-            <a className="my-internet-buy" href={purchaseUrl}>
-              Buy / Renew Internet <FiArrowRight />
-            </a>
+            {purchaseUrl ? (
+              <a className="my-internet-buy" href={purchaseUrl}>
+                Buy / Renew Internet <FiArrowRight />
+              </a>
+            ) : null}
           </>
         )}
       </section>
