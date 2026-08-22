@@ -104,28 +104,49 @@ function getHotspotReturnContext() {
   }
 }
 
-function getCredentials(result) {
-  return {
-    username:
+function getCredentials(...results) {
+  for (const result of results) {
+    if (!result) {
+      continue;
+    }
+
+    const username =
       result?.username ||
       result?.voucherUsername ||
       result?.voucher_username ||
       result?.credentials?.username ||
       result?.raw?.username ||
-      "",
-    password:
+      result?.raw?.data?.username ||
+      result?.raw?.credentials?.username ||
+      "";
+
+    const password =
       result?.password ||
       result?.voucherPassword ||
       result?.voucher_password ||
       result?.credentials?.password ||
       result?.raw?.password ||
-      "",
+      result?.raw?.data?.password ||
+      result?.raw?.credentials?.password ||
+      "";
+
+    if (username && password) {
+      return {
+        username: String(username).trim(),
+        password: String(password),
+      };
+    }
+  }
+
+  return {
+    username: "",
+    password: "",
   };
 }
 
-function buildHotspotAutoLoginUrl(result) {
+function buildHotspotAutoLoginUrl(...results) {
   const context = getHotspotReturnContext();
-  const { username, password } = getCredentials(result);
+  const { username, password } = getCredentials(...results);
 
   if (!context?.returnUrl || !username || !password) {
     return "";
@@ -161,9 +182,10 @@ function PaymentCallback() {
   );
   const [paymentResult, setPaymentResult] = useState(null);
   const [provisioningResult, setProvisioningResult] = useState(null);
+  const [hotspotAutoLoginUrl, setHotspotAutoLoginUrl] = useState("");
   const [isRetrying, setIsRetrying] = useState(false);
 
-  const pollProvisioning = useCallback(async () => {
+  const pollProvisioning = useCallback(async (paymentVerificationResult = null) => {
     setStatus("activating");
     setMessage(
       "Payment confirmed. Activating your internet account...",
@@ -200,7 +222,12 @@ function PaymentCallback() {
         provisioningStatus === "success" ||
         provisioningStatus === "successful"
       ) {
-        const autoLoginUrl = buildHotspotAutoLoginUrl(result);
+        const autoLoginUrl = buildHotspotAutoLoginUrl(
+          result,
+          paymentVerificationResult,
+        );
+
+        setHotspotAutoLoginUrl(autoLoginUrl);
 
         setStatus("success");
         setMessage(
@@ -266,6 +293,7 @@ function PaymentCallback() {
         }
 
         setProvisioningResult(null);
+        setHotspotAutoLoginUrl("");
         setStatus("verifying");
         setMessage("Confirming your payment with Paystack...");
 
@@ -301,7 +329,7 @@ function PaymentCallback() {
           resultStatus === "completed";
 
         if (paymentSuccessful) {
-          await pollProvisioning();
+          await pollProvisioning(result);
           return;
         }
 
@@ -360,6 +388,14 @@ function PaymentCallback() {
 
   function handleRetry() {
     verifyPayment({ retry: true });
+  }
+
+  function connectToInternet() {
+    if (!hotspotAutoLoginUrl) {
+      return;
+    }
+
+    window.location.assign(hotspotAutoLoginUrl);
   }
 
   function returnToPlans() {
@@ -456,6 +492,16 @@ function PaymentCallback() {
                 not returned. Keep your payment reference and contact the
                 network operator.
               </p>
+            )}
+
+            {hotspotAutoLoginUrl && (
+              <button
+                type="button"
+                onClick={connectToInternet}
+                className="payment-callback-primary-button"
+              >
+                Connect to Internet
+              </button>
             )}
 
             <button
